@@ -1,0 +1,1 @@
+Adafruit CircuitPython 6.0.0-rc.2 on 2020-11-12; Teensy 4.0 with IMXRT1062DVJ6A
