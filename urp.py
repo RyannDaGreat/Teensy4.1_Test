@@ -23,3 +23,5 @@ def ptoctic(*args):
 	ptoc(*args)
 	tic()
 
+def clamp(x,a,b):
+	return min(max(a,b),max(min(a,b),x))

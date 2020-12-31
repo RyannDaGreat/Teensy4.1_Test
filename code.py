@@ -7,6 +7,12 @@
 #	GPIO 10: Dual   Touch NPN Transistor (HIGH to activate)
 #	GPIO  9: Dual   Touch PNP Transistor (LOW  to activate)
 
+#SOFTWARE TODO: 
+#	Get rid of spikes in dual touch mode.
+#		- Calibrate the dual touches to match the single touch so we have compatiable numbers everywhere
+#			- This can be done in constant space with histograms and bins that fill up as you slowly move a credit card's edge along the ribbon
+#		- When the upper and lower touch move away or to the single touch position at roughly opposite velocities, don't change single touch/dual touch status until they appear to be from two fingers (if single touch isn't moving much but both top and bottom dual touches are it should be a red flag...watch the graph...)
+
 from urp import *
 import time
 import board
@@ -96,14 +102,102 @@ class DualTouchReading:
 		self.raw_a=ads_dual_a.value
 		self.raw_b=ads_dual_b.value
 
-while True:
-	single_before=SingleTouchReading()
-	dual=DualTouchReading()
-	single_after=SingleTouchReading()
+#These LinearModule-like classes are all callable when inputting a new value, and all store a 'value' parameter to get the last calulated value 
+#It's supposed to be pythonic; as opposed to jWave (which implicitly creates a tree). This is more like pytorch than tensorflow...let's see how it goes. 
+class Tether:
+	def __init__(self,size=1,value=None):
+		self.size=size
+		self.value=value
+	def __call__(self,value):
+		if self.value is None:
+			self.value=value
+		else:
+			self.value=clamp(self.value,value-self.size,value+self.size)
+		return self.value
 
-	if single_before.gate and single_after.gate: #TODO: Implement CheapSingleTouchReading so we can run nearly 3x as fast
-		print(single_before.raw_value,
-		      single_after.raw_value,
-		      (single_before.raw_value+single_after.raw_value)/2,
-		      dual.raw_a,
-		      2**15-dual.raw_b)
+class SoftTether:
+	#Acts similar to Tether, but has nicer properties (is smoother, and large jumps cause near-perfect centering for example)
+	def __init__(self,size=1,value=None):
+		self.size=size
+		self.value=value
+	def __call__(self,value):
+		if self.value is None:
+			self.value=value
+		else:
+			alpha=1-2.718**(-((value-self.value)/self.size)**2)
+			self.value=alpha*value+(1-alpha)*self.value
+		return self.value
+
+class Legato:
+	def __init__(self,alpha,value=None):
+		self.value=value
+		self.alpha=alpha
+	def __call__(self,value):
+		if self.value is None:
+			self.value=value
+		else:
+			self.value=self.alpha*value+self.value*(1-self.alpha)
+		return self.value
+
+class Differential:
+	#TODO: Make a version of this class that takes time into account?
+	def __init__(self,prev=None,value=None):
+		self.prev=prev
+		self.value=value
+	def __call__(self,value):
+		if self.value is None:
+			self.prev=value
+		self.value=value-self.prev
+		self.prev=value
+		return self.value
+
+
+class MovingAverage:
+	pass
+	#To be implemented some other time...
+	# def __init__(self)
+
+DUAL_DEMO=True
+if not DUAL_DEMO:
+	#A really nice single-value reading demo
+	DISCRETE=False#Set this to true to prove that we really do have 2**15 different spaces on the ribbon (place static object on ribbon to demonstrate)
+	#Note that vibrato movement can be detected on a scale EVEN SMALLER than 2**15 resolution
+	#Therefore, the total resolution is AT LEAST (750mm/2**15)=23 micrometers=.02mm (holy crap lol - that's 1/5th of the finest 3d printing height I can use...)
+	#DISCRETE might be nice when trying to determine if the touch moves (it's nearly 100% accurate from my tests; static objects don't move it at all when DISCRETE=True)
+	N=10
+	V=[]
+	def mean(l):
+		l=list(l)
+		return sum(l)/len(l)
+	def std(l):
+		u=mean(l)
+		return mean((x-u)**2 for x in l)**.5
+	tether=SoftTether(size=5)
+	tet2=Tether(1)
+	while True:
+		single=SingleTouchReading()
+		if single.gate:
+			V.append(single.raw_value)
+			while len(V)>N:
+				del V[0]
+			val=tether(mean(V))
+			if DISCRETE:
+				print(tet2(int(val)))
+			else:
+				print(val)
+		else:
+			V.clear()
+			tether.value=None
+else:
+	#A really nice Dual-Touch demo that shows the shortcomings of the current processing method
+	while True:
+		single_before=SingleTouchReading()
+		dual=DualTouchReading()
+		single_after=SingleTouchReading()
+
+		if single_before.gate and single_after.gate: #TODO: Implement CheapSingleTouchReading so we can run nearly 3x as fast
+			print(single_before.raw_value,
+				  single_after.raw_value,
+				  (single_before.raw_value+single_after.raw_value)/2,
+				  dual.raw_a,
+				  2**15-dual.raw_b)
