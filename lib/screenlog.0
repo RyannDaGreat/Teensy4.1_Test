@@ -1,0 +1,67 @@
+
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> 
+>>> import [K[K[K[K[K[K[K
+paste mode; Ctrl-C to cancel, Ctrl-D to finish
+=== import digitalio
+=== from board import *
+=== import time
+=== 
+=== led = digitalio.DigitalInOut(D17)
+=== led.direction = digitalio.Direction.OUTPUT
+=== while True:
+===     led.value = True
+===     time.sleep(0.1)
+===     led.value = False
+===     time.sleep(0.1)
+Traceback (most recent call last):
+  File "<stdin>", line 11, in <module>
+KeyboardInterrupt: 
+>>> 

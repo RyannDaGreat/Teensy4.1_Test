@@ -33,9 +33,13 @@ start = time.monotonic()
 
 
 # Read the same channel over and over
+do_gain=True
 for i in range(SAMPLES):
+    if do_gain: ads.gain=1
     data[i] = chan0.value
+    if do_gain: ads.gain=2
     data[i] = chan1.value
+    if do_gain: ads.gain=4
     data[i] = chan2.value
     # data[i] = chan1.value
     # data[i] = chan2.value
