@@ -28,7 +28,7 @@ if 'i2c' not in dir():
 	i2c = busio.I2C(board.SCL, board.SDA, frequency=1000000)# Create the I2C bus with a fast frequency
 
 #I2C addresses for ADS1115's: 0x48 and 0x4a for Ribbon A and Ribbon B respectively
-ads = ADS.ADS1115(i2c,address=0x48) 
+ads = ADS.ADS1115(i2c,address=0x4a) 
 
 ads.data_rate = 860 #Maximum frequency of ADS1115 in Hz
 
@@ -105,6 +105,7 @@ class SingleTouchReading:
 
 class ContinuousSingleTouchReading(SingleTouchReading):
 	#Should be similar to SingleTouchReading, but much faster when not using DualTouchReading
+	#WARNING AND TODO: This function isn't currently doing enough to flush out anything. Perhaps continous can use the CheapSingleTouchReading's gate, and a single non-wobbling single_pull value
 	@staticmethod
 	def prepare_to_read():
 		activate_single_transistors()
@@ -259,25 +260,25 @@ class MovingMedian:
 	# print(ads_a0.value)
 
 # INTERNAL_DEMO=True
-# m=MovingMedian(100)
-# activate_single_transistors()
-# while True:
-# 	# for i in range(100):
-# 		# o=m(analog_in.value)
-# 	single_pull.value=True
-# 	high=analog_in.value
-# 	single_pull.value=False
-# 	low=analog_in.value
-# 	print(m(high-low))
+m=MovingMedian(100)
+activate_single_transistors()
+while True:
+	# for i in range(100):
+		# o=m(analog_in.value)
+	single_pull.value=True
+	high=analog_in.value
+	single_pull.value=False
+	low=analog_in.value
+	print(m(high-low))
 
 
 
-CHEAP_DEMO=False
+CHEAP_DEMO=True
 DUAL_DEMO=False
 if not DUAL_DEMO:
-	CONTINUOUS_MODE=True
+	CONTINUOUS_MODE=False
 	#A really nice single-value reading demo
-	single_reader=CheapSingleTouchReading if CHEAP_DEMO else Squelcher(ContinuousSingleTouchReading if CONTINUOUS_MODE else SingleTouchReading,exception_class=I2CError)
+	single_reader=Squelcher(CheapSingleTouchReading if CHEAP_DEMO else (ContinuousSingleTouchReading if CONTINUOUS_MODE else SingleTouchReading),exception_class=I2CError)
 	DISCRETE=True#Set this to true to prove that we really do have 2**15 different spaces on the ribbon (place static object on ribbon to demonstrate)
 	#Note that vibrato movement can be detected on a scale EVEN SMALLER than 2**15 resolution
 	#Therefore, the total resolution is AT LEAST (750mm/2**15)=23 micrometers=.02mm (holy crap lol - that's 1/5th of the finest 3d printing height I can use...)
