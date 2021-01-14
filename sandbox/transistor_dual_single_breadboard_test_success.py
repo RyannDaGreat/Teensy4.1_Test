@@ -28,7 +28,7 @@ if 'i2c' not in dir():
 	i2c = busio.I2C(board.SCL, board.SDA, frequency=1000000)# Create the I2C bus with a fast frequency
 
 #I2C addresses for ADS1115's: 0x48 and 0x4a for Ribbon A and Ribbon B respectively
-ads = ADS.ADS1115(i2c,address=0x4a) 
+ads = ADS.ADS1115(i2c,address=0x48) 
 
 ads.data_rate = 860 #Maximum frequency of ADS1115 in Hz
 
@@ -43,16 +43,16 @@ ads_single=ads_a0
 ads_dual_a=ads_a1
 ads_dual_b=ads_a2
 
-single_pull=DigitalInOut(board.D12)
-single_pin =DigitalInOut(board.D9)
-dual_pin_2   =DigitalInOut(board.D10)
-dual_pin_1   =DigitalInOut(board.D11)
+single_pull=DigitalInOut(board.D32)
+single_pin =DigitalInOut(board.D31)
+dual_pin_2   =DigitalInOut(board.D25)
+dual_pin_1   =DigitalInOut(board.D24)
 single_pull.direction=Direction.OUTPUT
 single_pin .direction=Direction.OUTPUT
 dual_pin_2 .direction=Direction.OUTPUT
 dual_pin_1 .direction=Direction.OUTPUT
 
-analog_in = Internal_AnalogIn(board.A9)
+analog_in = Internal_AnalogIn(board.A13)
 
 
 def activate_single_transistors():
@@ -260,21 +260,21 @@ class MovingMedian:
 	# print(ads_a0.value)
 
 # INTERNAL_DEMO=True
-m=MovingMedian(100)
-activate_single_transistors()
-while True:
-	# for i in range(100):
-		# o=m(analog_in.value)
-	single_pull.value=True
-	high=analog_in.value
-	single_pull.value=False
-	low=analog_in.value
-	print(m(high-low))
+# m=MovingMedian(100)
+# activate_single_transistors()
+# while True:
+# 	# for i in range(100):
+# 		# o=m(analog_in.value)
+# 	single_pull.value=True
+# 	high=analog_in.value
+# 	single_pull.value=False
+# 	low=analog_in.value
+# 	print(m(high-low))
 
 
 
-CHEAP_DEMO=True
-DUAL_DEMO=False
+CHEAP_DEMO=False
+DUAL_DEMO=True
 if not DUAL_DEMO:
 	CONTINUOUS_MODE=False
 	#A really nice single-value reading demo

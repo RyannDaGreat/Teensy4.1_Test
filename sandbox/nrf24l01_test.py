@@ -9,9 +9,13 @@ from circuitpython_nrf24l01.rf24 import RF24
 
 spi = board.SPI()  # init spi bus object
 
-ce = dio.DigitalInOut(board.D40)
-csn = dio.DigitalInOut(board.D28)
+ce = dio.DigitalInOut(board.D21)
+csn = dio.DigitalInOut(board.D20)
 nrf = RF24(spi, csn, ce)
+
+assert False,'GOODIVA - we havent tried setting up the second yet.'
+
+
 nrfB = RF24(spi, csn, ce)
 nrf.dynamic_payloads = False  # the default in the TMRh20 arduino library
 nrfB.dynamic_payloads = False  # the default in the TMRh20 arduino library
