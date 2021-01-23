@@ -1,69 +1,32 @@
-"""
-This test will initialize the display using displayio and draw a solid green
-background, a smaller purple rectangle, and some yellow text.
-"""
 import board
-import terminalio
-import displayio
-from adafruit_display_text import label
-from adafruit_st7789 import ST7789
-
-
+import neopixel_write
 import digitalio
+from urp import *
 
-led = digitalio.DigitalInOut(board.D5)
-led.switch_to_output()
-led.value=True
+pin = digitalio.DigitalInOut(board.D30)
+pin.direction = digitalio.Direction.OUTPUT
 
-# Release any resources currently in use for the displays
-displayio.release_displays()
+pixel_off = bytearray([32, 32, 32]*144)
+neopixel_write.neopixel_write(pin, pixel_off)
 
-spi = board.SPI()
-# spi.frequency=1000000
-spi.try_lock()
-spi.configure(baudrate=1000000000)
-spi.unlock()
-# spi.configure(baudrate=10000000)
-tft_cs = board.D10
-tft_dc = board.D9
+import ulab
+from urp import seconds
 
-display_bus = displayio.FourWire(
-	spi, command=tft_dc, chip_select=tft_cs, reset=board.D6
-)
-
-display = ST7789(display_bus, width=320, height=240, rotation=90)
-
-# Make the display context
-splash = displayio.Group(max_size=10)
-display.show(splash)
-
-
-# assert False
-
-color_bitmap = displayio.Bitmap(320, 240, 1)
-color_palette = displayio.Palette(1)
-color_palette[0] = 0x0088FF  # Bright Green
-
-bg_sprite = displayio.TileGrid(color_bitmap, pixel_shader=color_palette, x=0, y=0)
-splash.append(bg_sprite)
-
-# Draw a smaller inner rectangle
-inner_bitmap = displayio.Bitmap(280, 200, 1)
-inner_palette = displayio.Palette(1)
-inner_palette[0] = 0x000000  # Purple
-inner_sprite = displayio.TileGrid(inner_bitmap, pixel_shader=inner_palette, x=20, y=20)
-splash.append(inner_sprite)
-
-# Draw a label
-text_group = displayio.Group(max_size=10, scale=2, x=320//2, y=240//2)
-text = "^_^"
-text_area = label.Label(terminalio.FONT, text=text, color=0xFFFFFF)
-text_group.append(text_area)  # Subgroup for text scaling
-splash.append(text_group)
+def get_wav(freq,phase):
+	theta=ulab.arange(144)/144*3.14159*2
+	wav=(ulab.vector.sin(theta*freq+phase)+1)/2
+	wav=wav*32
+	return wav
 
 while True:
-	from random import randint
-	text_group.x+=randint(-1,1)
-	text_group.y+=randint(-1,1)
-	display.refresh()
-	pass
+	tic()
+	r=get_wav(freq=10,phase=seconds()*5)
+	g=get_wav(freq=5,phase=-seconds()*5)
+	b=get_wav(freq=5,phase=seconds()*20)
+	wav=ulab.array([r,g,b])
+	wav=ulab.array(wav,dtype=ulab.uint8)
+	wav=wav.transpose()
+	wav=bytearray(wav)
+	neopixel_write.neopixel_write(pin, wav)
+	ptoc()
+
