@@ -40,5 +40,5 @@ b1o.switch_to_input(pull=dio.Pull.UP)
 while True:
 	print(bmo.value,'\t',b4o.value,'\t',b3o.value,'\t',b2o.value,'\t',b1o.value,'\t',)
 	bmr.value=not b4o.value
-	bmb.value=not b2o.value
-	bmg.value=not b1o.value
+	bmb.value=not b3o.value
+	bmg.value=not b2o.value
