@@ -1,84 +1,87 @@
-from urp import *
+
+#Please use the antennae! it makes it much better.
+"""
+Simple example of using the RF24 class.
+"""
 import time
 import struct
 import board
-import digitalio as dio
+import digitalio
+from urp import *
 from time import sleep
 
+# if running this on a ATSAMD21 M0 based board
+# from circuitpython_nrf24l01.rf24_lite import RF24
 from circuitpython_nrf24l01.rf24 import RF24
 
+# change these (digital output) pins accordingly
+LIGHTBOARD=True
+if LIGHTBOARD:
+	ce = digitalio.DigitalInOut(board.D21)
+	csn = digitalio.DigitalInOut(board.D20)
+else:
+	ce = digitalio.DigitalInOut(board.D9)
+	csn = digitalio.DigitalInOut(board.D14)
+
+# using board.SPI() automatically selects the MCU's
+# available SPI pins, board.SCK, board.MOSI, board.MISO
 spi = board.SPI()  # init spi bus object
 
-ce = dio.DigitalInOut(board.D21)
-csn = dio.DigitalInOut(board.D20)
+# we'll be using the dynamic payload size feature (enabled by default)
+# initialize the nRF24L01 on the spi bus object
 nrf = RF24(spi, csn, ce)
-
-assert False,'GOODIVA - we havent tried setting up the second yet.'
-
-
-nrfB = RF24(spi, csn, ce)
-nrf.dynamic_payloads = False  # the default in the TMRh20 arduino library
-nrfB.dynamic_payloads = False  # the default in the TMRh20 arduino library
 
 # set the Power Amplifier level to -12 dBm since this test example is
 # usually run with nRF24L01 transceivers in close proximity
-nrf.pa_level = -12
+nrf.pa_level = 0
 
-# change this variable to oppose the corresponding variable in the
-# TMRh20 library's GettingStarted_HandlingData.ino example
-radioNumber = True
+nrf.data_rate=1#1:1mbps, 2:2mbps
 
-ce2 = dio.DigitalInOut(board.D41)
-csn2 = dio.DigitalInOut(board.D8)
-nrf2 = RF24(spi, csn2, ce2)
-nrf2B = RF24(spi, csn2, ce2)
-nrf2.dynamic_payloads = False  # the default in the TMRh20 arduino library
-nrf2B.dynamic_payloads = False  # the default in the TMRh20 arduino library
+# addresses needs to be in a buffer protocol object (bytearray)
+address = [b"1Node", b"2Node"]
 
-nrf .open_rx_pipe(pipe_number=1, address=b'a')
-nrf .open_tx_pipe(               address=b'a')
+# to use different addresses on a pair of radios, we need a variable to
+# uniquely identify which address this radio will use to transmit
+# 0 uses address[0] to transmit, 1 uses address[1] to transmit
+radio_number = LIGHTBOARD
 
-nrf2.open_rx_pipe(pipe_number=1, address=b'a')
-nrf2.open_tx_pipe(               address=b'a')
+# set TX address of RX node into the TX pipe
+nrf.open_tx_pipe(address[radio_number])  # always uses pipe 0
 
-nrfB .open_rx_pipe(pipe_number=2, address=b'rx')
-nrfB .open_tx_pipe(               address=b'tx')
-
-nrf2B.open_rx_pipe(pipe_number=2, address=b'rx')
-nrf2B.open_tx_pipe(               address=b'tx')
+# set RX address of TX node into an RX pipe
+nrf.open_rx_pipe(1, address[not radio_number])  # using pipe 1
 
 
-print("\n\nPART 1")
-nrf.listen=False
-nrf2.listen=True
-nrf.write(b"Hello World!") #the .write function is like UDP and the .send function is like TCP (it's blocking)
-print(nrf2.recv(32))
-
-print("\n\nPART 2")
-nrf.listen=True
-nrf2.listen=False
-tic()
-nrf2.write(b"1...............................")
-nrf2.write(b"2...............................")
-nrf2.write(b"3...............................")
-nrf2.write(b"4...............................")
-nrf2.write(b"5...............................")
-nrf2.write(b"6...............................")
-nrf2.write(b"7...............................")
-nrf2.write(b"8...............................")
-nrf2.write(b"9...............................")
-ptoctic()
-print(nrf.recv(32*79))
-ptoc()
+def master():  # count = 5 will only transmit 5 packets
+	"""Transmits an incrementing integer every second"""
+	nrf.listen = False  # ensures the nRF24L01 is in TX mode
+	i=0
+	while True:
+		tic()
+		i+=1
+		msg='%.6f \t#%i'%(gtoc(),i)
+		# result=nrf.send(msg.encode())
+		result=nrf.send(bytes([0x90,0x3c,0x40]))
+		print(result)
+		sleep(.25)
+		# ptoc()
 
 
-#I need some way to do this...
-print("\n\nPART 3")
-nrf.listen=nrf2.listen=False
-nrfB.listen=nrf2B.listen=True
-# nrf.listen=nrf2.listen=False
-nrf .write(b"Hello World! From nrf") #the .write function is like UDP and the .send function is like TCP (it's blocking)
-nrf2.write(b"Hello World! From nrf2") #the .write function is like UDP and the .send function is like TCP (it's blocking)
+def slave():
+	nrf.listen = True  # put radio into RX mode and power up
+	while True:
+		if nrf.available():
+			# grab information about the received payload
+			payload_size, pipe_number = (nrf.any(), nrf.pipe)
+			# fetch 1 payload from RX FIFO
+			buffer = nrf.read()  # also clears nrf.irq_dr status flag
+			try:
+				print(buffer)
+			except UnicodeError:
+				print("(Cant print)")
 
-print(nrfB.recv(32))
-print(nrf2B.recv(32))
+if LIGHTBOARD:
+	master()
+else:
+	slave()
+

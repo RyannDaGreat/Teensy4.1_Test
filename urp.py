@@ -25,3 +25,15 @@ def ptoctic(*args):
 
 def clamp(x,a,b):
 	return min(max(a,b),max(min(a,b),x))
+
+def midi_note_off(note:int,vel:int=127,chan:int=0):
+	assert 0<=note<128
+	assert 0<=vel <128
+	assert 0<=chan<16
+	return bytes([0x80+chan,note,vel])
+
+def midi_note_on(note:int,vel:int=127,chan:int=0):
+	assert 0<=note<128
+	assert 0<=vel <128
+	assert 0<=chan<16
+	return bytes([0x90+chan,note,vel])

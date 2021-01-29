@@ -272,6 +272,12 @@ class MovingMedian:
 # 	low=analog_in.value
 # 	print(m(high-low))
 
+activate_single_transistors()
+ads.mode=ADS.Mode.SINGLE
+ads.gain=ads_gain_single
+while True:
+	print(ads_single.value,analog_in.value)
+
 
 
 
@@ -408,14 +414,158 @@ text_group.append(text_area)  # Subgroup for text scaling
 splash.append(text_group)
 
 
+#Please use the antennae! it makes it much better.
+"""
+Simple example of using the RF24 class.
+"""
+import time
+import struct
+import board
+import digitalio
+from urp import *
+from time import sleep
+
+# if running this on a ATSAMD21 M0 based board
+# from circuitpython_nrf24l01.rf24_lite import RF24
+from circuitpython_nrf24l01.rf24 import RF24
+
+# change these (digital output) pins accordingly
+LIGHTBOARD=True
+if LIGHTBOARD:
+	ce = digitalio.DigitalInOut(board.D21)
+	csn = digitalio.DigitalInOut(board.D20)
+else:
+	ce = digitalio.DigitalInOut(board.D9)
+	csn = digitalio.DigitalInOut(board.D14)
+
+# using board.SPI() automatically selects the MCU's
+# available SPI pins, board.SCK, board.MOSI, board.MISO
+spi = board.SPI()  # init spi bus object
+
+# we'll be using the dynamic payload size feature (enabled by default)
+# initialize the nRF24L01 on the spi bus object
+nrf = RF24(spi, csn, ce)
+
+# set the Power Amplifier level to -12 dBm since this test example is
+# usually run with nRF24L01 transceivers in close proximity
+nrf.pa_level = 0
+
+nrf.data_rate=1#1:1mbps, 2:2mbps
+
+# addresses needs to be in a buffer protocol object (bytearray)
+address = [b"1Node", b"2Node"]
+
+# to use different addresses on a pair of radios, we need a variable to
+# uniquely identify which address this radio will use to transmit
+# 0 uses address[0] to transmit, 1 uses address[1] to transmit
+radio_number = LIGHTBOARD
+
+# set TX address of RX node into the TX pipe
+nrf.open_tx_pipe(address[radio_number])  # always uses pipe 0
+
+# set RX address of TX node into an RX pipe
+nrf.open_rx_pipe(1, address[not radio_number])  # using pipe 1
+
+def send(msg):
+	while not nrf.send(msg):
+		#SOmetimes it randomly fails even in good conditions...dont let it..
+		pass
+	return str('True'+str(msg))
+
+def master():  # count = 5 will only transmit 5 packets
+	"""Transmits an incrementing integer every second"""
+	nrf.listen = False  # ensures the nRF24L01 is in TX mode
+	i=0
+	while True:
+		tic()
+		i+=1
+		msg='%.6f \t#%i'%(gtoc(),i)
+		# result=nrf.send(msg.encode())
+		# print(b1o.value)
+		notes=[60,64,67]
+		t4=b4.trig
+		t3=b3.trig
+		t2=b2.trig
+		if t4 is not None:
+			result=send((midi_note_on if t4 else midi_note_off)(notes[0]))
+			print(result)
+		if t3 is not None:
+			result=send((midi_note_on if t3 else midi_note_off)(notes[1]))
+			print(result)
+		if t2 is not None:
+			result=send((midi_note_on if t2 else midi_note_off)(notes[2]))
+			print(result)
+		# if t4 is not None or t3 is not None or t2 is not None:
+			# sleep(.01)
+		# ptoc()
+
+
+def slave():
+	nrf.listen = True  # put radio into RX mode and power up
+	while True:
+		if nrf.available():
+			# grab information about the received payload
+			payload_size, pipe_number = (nrf.any(), nrf.pipe)
+			# fetch 1 payload from RX FIFO
+			buffer = nrf.read()  # also clears nrf.irq_dr status flag
+			try:
+				print(buffer)
+			except UnicodeError:
+				print("(Cant print)")
 
 
 
 
+class GreenButton:
+	def __init__(self,dio):
+		self.dio=dio
+		self.value=dio.value
+	@property
+	def trig(self):
+		if self.dio.value!=self.value:
+			self.value=self.dio.value
+			return not self.value
+		return None
+	
 
+b4=GreenButton(b4o)
+b3=GreenButton(b3o)
+b2=GreenButton(b2o)
+b1=GreenButton(b1o)
+
+
+i=0
 
 pos=0
+nrf.listen = False  # ensures the nRF24L01 is in TX mode
 while True:
+
+
+
+	tic()
+	i+=1
+	msg='%.6f \t#%i'%(gtoc(),i)
+	# result=nrf.send(msg.encode())
+	# print(b1o.value)
+	notes=[60,64,67]
+	t4=b4.trig
+	t3=b3.trig
+	t2=b2.trig
+	if t4 is not None:
+		result=send((midi_note_on if t4 else midi_note_off)(notes[0]))
+		print(result)
+	if t3 is not None:
+		result=send((midi_note_on if t3 else midi_note_off)(notes[1]))
+		print(result)
+	if t2 is not None:
+		result=send((midi_note_on if t2 else midi_note_off)(notes[2]))
+		print(result)
+
+
+
+
+
+
 	if toc()>.25:
 		text_area.text=str(seconds())
 		tic()
@@ -518,3 +668,183 @@ else:
 				  dual.raw_a,
 				  2**15-dual.raw_b
 				  )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import board
+import digitalio as dio
+
+bmr = dio.DigitalInOut(board.D33)
+bmb = dio.DigitalInOut(board.D36)
+bmg = dio.DigitalInOut(board.D37)
+b4l = dio.DigitalInOut(board.D14)
+b3l = dio.DigitalInOut(board.D15)
+b2l = dio.DigitalInOut(board.D22)
+b1l = dio.DigitalInOut(board.D23)
+bmr.switch_to_output()
+bmb.switch_to_output()
+bmg.switch_to_output()
+b4l.switch_to_output()
+b3l.switch_to_output()
+b2l.switch_to_output()
+b1l.switch_to_output()
+bmr.value=False
+bmb.value=True
+bmg.value=True
+b4l.value=True
+b3l.value=True
+b2l.value=True
+b1l.value=True
+
+
+bmo = dio.DigitalInOut(board.D38)
+b4o = dio.DigitalInOut(board.D39)
+b3o = dio.DigitalInOut(board.D40)
+b2o = dio.DigitalInOut(board.D41)
+b1o = dio.DigitalInOut(board.D16)
+bmo.switch_to_input(pull=dio.Pull.UP)
+b4o.switch_to_input(pull=dio.Pull.UP)
+b3o.switch_to_input(pull=dio.Pull.UP)
+b2o.switch_to_input(pull=dio.Pull.UP)
+b1o.switch_to_input(pull=dio.Pull.UP)
+
+class GreenButton:
+	def __init__(self,dio):
+		self.dio=dio
+		self.value=dio.value
+	@property
+	def trig(self):
+		if self.dio.value!=self.value:
+			self.value=self.dio.value
+			return not self.value
+		return None
+	
+
+b4=GreenButton(b4o)
+b3=GreenButton(b3o)
+b2=GreenButton(b2o)
+b1=GreenButton(b1o)
+
+
+
+#Please use the antennae! it makes it much better.
+"""
+Simple example of using the RF24 class.
+"""
+import time
+import struct
+import board
+import digitalio
+from urp import *
+from time import sleep
+
+# if running this on a ATSAMD21 M0 based board
+# from circuitpython_nrf24l01.rf24_lite import RF24
+from circuitpython_nrf24l01.rf24 import RF24
+
+# change these (digital output) pins accordingly
+LIGHTBOARD=True
+if LIGHTBOARD:
+	ce = digitalio.DigitalInOut(board.D21)
+	csn = digitalio.DigitalInOut(board.D20)
+else:
+	ce = digitalio.DigitalInOut(board.D9)
+	csn = digitalio.DigitalInOut(board.D14)
+
+# using board.SPI() automatically selects the MCU's
+# available SPI pins, board.SCK, board.MOSI, board.MISO
+spi = board.SPI()  # init spi bus object
+
+# we'll be using the dynamic payload size feature (enabled by default)
+# initialize the nRF24L01 on the spi bus object
+nrf = RF24(spi, csn, ce)
+
+# set the Power Amplifier level to -12 dBm since this test example is
+# usually run with nRF24L01 transceivers in close proximity
+nrf.pa_level = 0
+
+nrf.data_rate=1#1:1mbps, 2:2mbps
+
+# addresses needs to be in a buffer protocol object (bytearray)
+address = [b"1Node", b"2Node"]
+
+# to use different addresses on a pair of radios, we need a variable to
+# uniquely identify which address this radio will use to transmit
+# 0 uses address[0] to transmit, 1 uses address[1] to transmit
+radio_number = LIGHTBOARD
+
+# set TX address of RX node into the TX pipe
+nrf.open_tx_pipe(address[radio_number])  # always uses pipe 0
+
+# set RX address of TX node into an RX pipe
+nrf.open_rx_pipe(1, address[not radio_number])  # using pipe 1
+
+def send(msg):
+	while not nrf.send(msg):
+		#SOmetimes it randomly fails even in good conditions...dont let it..
+		pass
+	return str('True'+str(msg))
+
+def master():  # count = 5 will only transmit 5 packets
+	"""Transmits an incrementing integer every second"""
+	nrf.listen = False  # ensures the nRF24L01 is in TX mode
+	i=0
+	while True:
+		tic()
+		i+=1
+		msg='%.6f \t#%i'%(gtoc(),i)
+		# result=nrf.send(msg.encode())
+		# print(b1o.value)
+		notes=[60,64,67]
+		t4=b4.trig
+		t3=b3.trig
+		t2=b2.trig
+		if t4 is not None:
+			result=send((midi_note_on if t4 else midi_note_off)(notes[0]))
+			print(result)
+		if t3 is not None:
+			result=send((midi_note_on if t3 else midi_note_off)(notes[1]))
+			print(result)
+		if t2 is not None:
+			result=send((midi_note_on if t2 else midi_note_off)(notes[2]))
+			print(result)
+		# if t4 is not None or t3 is not None or t2 is not None:
+			# sleep(.01)
+		# ptoc()
+
+
+def slave():
+	nrf.listen = True  # put radio into RX mode and power up
+	while True:
+		if nrf.available():
+			# grab information about the received payload
+			payload_size, pipe_number = (nrf.any(), nrf.pipe)
+			# fetch 1 payload from RX FIFO
+			buffer = nrf.read()  # also clears nrf.irq_dr status flag
+			try:
+				print(buffer)
+			except UnicodeError:
+				print("(Cant print)")
+
+if LIGHTBOARD:
+	master()
+else:
+	slave()
+
