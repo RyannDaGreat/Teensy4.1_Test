@@ -39,10 +39,9 @@ class HistogramFitter:
 		return self.histogram_sums[x]/self.histogram_freqs[x]
 	
 	def verify(self):
-		if self._verified==True:
+		if self._verified:
 			#Don't waste time
 			return
-		
 		#Internal assertion
 		assert set(self.histogram_sums)==set(self.histogram_freqs)
 		
@@ -58,7 +57,6 @@ class HistogramFitter:
 		for key in self.histogram_freqs:
 			if self.histogram_freqs[key]>0:
 				means[key-min_bin]=self.histogram_sums[key]/self.histogram_freqs[key]
-
 		def tween(a,b,n):
 			# >>> tween(0,6,3)
 			#ans = [0.0, 3.0, 6.0]

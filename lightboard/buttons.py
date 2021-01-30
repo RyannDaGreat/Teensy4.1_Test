@@ -158,12 +158,20 @@ class ButtonPressViewer:
 
 	@property
 	def value(self):
+		# print("SKEET",flush=True)
 		#Will appear to be True only once per stroke
 		new_value=self.button.value
-		if self.old_value!=new_value and new_value:
+		# print("scout",flush=True)
+		Q=self.old_value
+
+		# print("Smoo",flush=True)
+		if not self.old_value and new_value:
+			# print("scotch",flush=True)
 			out = True
 		else:
+			# print("scratch",flush=True)
 			out = False
+		# print("flease",flush=True)
 		self.old_value=new_value
 		from time import sleep
 		# sleep(.05)#This is a crude, sloppy way of debouncing the button...it's good enough for now lol

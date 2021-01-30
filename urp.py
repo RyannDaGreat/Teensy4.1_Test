@@ -5,6 +5,7 @@
 read_only=True
 import lightboard.battery
 if lightboard.battery.is_connected():
+	import lightboard.display
 	lightboard.display.set_text("BATTERY ON!")
 	try:
 		#Try to mitigate errors when saving files

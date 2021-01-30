@@ -41,11 +41,11 @@ import lightboard.ribbons as ribbons
 ribbons.ribbon_a.run_calibration()
 ribbons.ribbon_b.run_calibration()
 
-# while True:
+# # while True:
 # 	pass
-
+import lightboard.display as display
 while True:
-	reading=ribbons.ribbon_b.cheap_single_touch_reading()
+	reading=ribbons.ribbon_a.cheap_single_touch_reading()
 	if reading.gate :
 		# print(reading.raw_gap)
 		print(reading.raw_value)
