@@ -1,21 +1,25 @@
 #r stands for 'micro-rp'
 #This library is originally designed for CircuitPython on my Teensy4.0 and Teensy4.1 boards. If using other implementations or boards, you might need to adapt this code.
 
-try:
-	#Try to mitigate errors when saving files
-	#		open('file.txt','wb')
-	#	results in...
-	#		OSError: [Errno 30] Read-only filesystem
-	import storage
-	storage.remount('/', readonly=False)
-	filesystem_is_read_only=False
-except RuntimeError:
-	#When plugged into USB, this doesn't work - and there's no way to write to the filesystem :\
-	#SD cards don't work in the current circuitpython version...
-	#	RuntimeError: Cannot remount '/' when USB is active.
-	# print("Failed to remount")
-	filesystem_is_read_only=True
-	pass
+filesystem_is_read_only=True
+import lightboard.battery
+if lightboard.battery.is_connected():
+	try:
+		#Try to mitigate errors when saving files
+		#		open('file.txt','wb')
+		#	results in...
+		#		OSError: [Errno 30] Read-only filesystem
+		import storage
+		storage.remount('/', readonly=False)
+		filesystem_is_read_only=False
+		import lightboard.display
+		lightboard.display.set_text("Writeable!")
+	except RuntimeError:
+		#When plugged into USB, this doesn't work - and there's no way to write to the filesystem :\
+		#SD cards don't work in the current circuitpython version...
+		#	RuntimeError: Cannot remount '/' when USB is active.
+		# print("Failed to remount")
+		pass
 
 from time import monotonic_ns
 def millis():
