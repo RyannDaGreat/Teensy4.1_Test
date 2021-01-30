@@ -110,7 +110,7 @@ class HistogramFitter:
 			return x
 
 		x/=self.bin_size
-		# x-=1/2 #Correct the placement of the bins
+		x-=1/2 #Correct the placement of the bins
 		if x==int(x):
 			return self[int(x)]
 		alpha=x-int(x)

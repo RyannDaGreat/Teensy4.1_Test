@@ -1,3 +1,4 @@
+from urp import *
 class Squelcher:
 	def __init__(self,callable,value=None,error=None,exception_class=Exception):
 		#Interfaces like a linear module but can take more than just number classes

@@ -15,6 +15,7 @@ from digitalio import DigitalInOut, Direction, Pull
 from analogio import AnalogIn as Internal_AnalogIn
 from tools import *
 import storage
+from linear_modules import *
 
 i2c = busio.I2C(board.SCL, board.SDA, frequency=1000000)# Create the I2C bus with a fast frequency
 
@@ -108,7 +109,7 @@ class Ribbon:
 		import lightboard.buttons as buttons
 		import lightboard.widgets as widgets
 
-		def display_dot(index,r=127,g=127,b=127):
+		def display_dot(index,r=63,g=63,b=63):
 			index=max(0,min(index,neopixels.length-1))
 			neopixel_data=bytearray([0,0,0]*3*neopixels.length)
 			neopixel_data[index*3:index*3+3]=bytearray([g,r,b])
@@ -128,7 +129,7 @@ class Ribbon:
 
 
 		i=0
-		display_dot(i,127,0,0)
+		display_dot(i,63,0,0)
 		while True:
 			reading=self.cheap_single_touch_reading()
 			if reading.gate:
@@ -143,7 +144,7 @@ class Ribbon:
 				refresh_flag=True
 			if refresh_flag:
 				i=min(neopixels.length-1,max(0,i))
-				display_dot(i,127,0,0)
+				display_dot(i,63,0,0)
 
 			if buttons.metal_button.value:
 				if widgets.input_yes_no("Do you want to cancel calibration?\n(All progress will be lost)"):
@@ -159,7 +160,7 @@ class Ribbon:
 		finished=False
 		while i<neopixels.length and not finished:
 			i=max(0,min(i,neopixels.length-1))
-			display_dot(i,0,127,127)
+			display_dot(i,0,63,63)
 			pixel_num_samples=0
 			while pixel_num_samples<samples_per_pixel:
 				if buttons.metal_button.value:
@@ -187,7 +188,7 @@ class Ribbon:
 
 						pixel_num_samples+=1
 			i+=1
-			display_dot(i,127,63,0)
+			display_dot(i,63,31,0)
 			while self.cheap_single_touch_reading().gate:
 				pass
 
@@ -196,9 +197,6 @@ class Ribbon:
 		neopixels.turn_off()
 
 		while not buttons.metal_button.value:
-			if buttons.metal_button.value:
-				if widgets.input_yes_no("Do you want to cancel calibration?\n(All progress will be lost)"):
-					return
 			if self.cheap_single_touch_reading().gate:
 				with neopixels.TemporarilyTurnedOff():
 					cheap_single_touch_reading=self.cheap_single_touch_reading()
@@ -216,6 +214,39 @@ class Ribbon:
 
 						print(dual_a,dual_b,single,cheap_single)
 
+		display.set_text("Now for a smoooooth demo...")
+
+		#This is a show-offy demo lol. Try miscalibrating it such that a tiny vibrato makes it move from one side of the lightwave to the otehr...
+		DISCRETE=True
+		N=10
+		V=[]
+		def mean(l):
+			l=list(l)
+			return sum(l)/len(l)
+		def std(l):
+			u=mean(l)
+			return mean((x-u)**2 for x in l)**.5
+		tether=SoftTether(size=5)
+		tet2=Tether(1)
+		while not buttons.metal_button.value:
+			single=self.single_touch_reading()
+			# if single_reader.error:
+				# print("ERROR:",single_reader.error)
+			# else:
+			if single.gate:
+				V.append(single.raw_value)
+				while len(V)>N:
+					del V[0]
+				val=tether(mean(V))
+				if DISCRETE:
+					Val=(tet2(int(val)))
+				else:
+					Val=(val)
+				val=single_touch_to_neopixel_calibration(Val)
+				display_dot(int(val),64,0,128)
+			else:
+				V.clear()
+				tether.value=None
 
 
 
