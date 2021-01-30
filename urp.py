@@ -3,7 +3,10 @@
 
 filesystem_is_read_only=True
 import lightboard.battery
+print("AOISHDOIJS")
+import lightboard.display
 if lightboard.battery.is_connected():
+	lightboard.display.set_text("BATTERY ON!")
 	try:
 		#Try to mitigate errors when saving files
 		#		open('file.txt','wb')
@@ -12,15 +15,14 @@ if lightboard.battery.is_connected():
 		import storage
 		storage.remount('/', readonly=False)
 		filesystem_is_read_only=False
-		import lightboard.display
 		lightboard.display.set_text("Writeable!")
-	except RuntimeError:
+	except RuntimeError as error:
 		#When plugged into USB, this doesn't work - and there's no way to write to the filesystem :\
 		#SD cards don't work in the current circuitpython version...
 		#	RuntimeError: Cannot remount '/' when USB is active.
-		# print("Failed to remount")
+		print("Failed to remount:",error)
 		pass
-
+ 
 from time import monotonic_ns
 def millis():
 	return monotonic_ns()//1000000

@@ -52,4 +52,5 @@ splash.append(text_group)
 
 #INTERFACE IS SUBJECT TO MAJOR CHANGES SOON
 def set_text(text:str):
-	text_group.text=text
+	text_area.text=text
+	display.refresh()
