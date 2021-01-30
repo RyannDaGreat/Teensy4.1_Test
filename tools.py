@@ -1,9 +1,25 @@
+from urp import *
+
 class HistogramFitter:
-	def __init__(self,bin_size,file_path=None):
-		self.bin_size=bin_size
-		self.histogram_sums={}
-		self.histogram_freqs={}
-		self._verified=False
+	def __init__(self,bin_size=None,file_path=None):
+		self.file_path=file_path
+		assert self.file_path is None or isinstance(self.file_path,str)
+		if self.file_path is not None and path_exists(self.file_path):
+			self.load_from_file(self.file_path)
+		else:
+			assert bin_size is not None,'HistogramFitter: Did not load from file, but bin_size was None - we have nothing to initialize with.'
+			self.bin_size=bin_size
+			self.histogram_sums={}
+			self.histogram_freqs={}
+			self._verified=False
+
+	def save_to_file(self,path):
+		data = self._verified, self.bin_size, self.histogram_sums, self.histogram_freqs
+		object_to_file(data,path)
+
+	def load_from_file(self,path):
+		data=file_to_object(path)
+		self._verified, self.bin_size, self.histogram_sums, self.histogram_freqs = data
 		
 	def add_sample(self,x,y):
 		x/=self.bin_size
@@ -37,6 +53,46 @@ class HistogramFitter:
 		self.min_bin=min_bin
 		prev_freq=self.histogram_freqs[min_bin]
 		prev_sum =self.histogram_sums [min_bin]
+
+		means=[None]*(max_bin-min_bin+1)
+		for key in self.histogram_freqs:
+			if self.histogram_freqs[key]>0:
+				means[key-min_bin]=self.histogram_sums[key]/self.histogram_freqs[key]
+
+		def tween(a,b,n):
+			# >>> tween(0,6,3)
+			#ans = [0.0, 3.0, 6.0]
+			# >>> tween(0,6,4)
+			#ans = [0.0, 2.0, 4.0, 6.0]
+			delta=(b-a)/(n-1)
+			return [a+i*delta for i in range(n)]
+		
+		def none_indices(array):
+			#First and last index of the first contiguous clump of None's in an array
+			assert None in array
+			first=array.index(None)
+			last=first
+			while array[last+1] is None:
+				last+=1
+			return first,last
+			
+		def none_fill(array):
+			# >>> none_fill([1,2,None,None,5,6])
+			#ans = [1, 2, 3.0, 4.0, 5, 6]
+			# >>> none_fill([1,2,None,None,5,6,None,None,None,None,11])
+			#ans = [1, 2, 3.0, 4.0, 5, 6, 7.0, 8.0, 9.0, 10.0, 11]
+			while None in array:
+				first,last=none_indices(array)
+				array[first:last+1]=tween(array[first-1],array[last+1],last-first+3)[1:-1]
+			return array
+
+		means=none_fill(means)
+		for i in range(len(means)):
+			key=i+min_bin
+			if key not in self.histogram_freqs or self.histogram_freqs[key]==0:
+				self.histogram_freqs[key]=1
+				self.histogram_sums[key]=means[i]
+
 		for i in range(min_bin,max_bin+1):
 			#Todo: Add linear interpolation instead of the simple step function used here
 			if i not in self.histogram_sums:
@@ -50,8 +106,13 @@ class HistogramFitter:
 		self._verified=True
 	
 	def __call__(self,x):
+		if len(self.histogram_sums)==0:
+			#If we haven't calibrated anything yet, just return the identity...
+			#...it makes more sense than crashing does in most contexts.
+			return x
+
 		x/=self.bin_size
-		x-=1/2 #Correct the placement of the bins
+		# x-=1/2 #Correct the placement of the bins
 		if x==int(x):
 			return self[int(x)]
 		alpha=x-int(x)
@@ -81,8 +142,8 @@ class NeopixelRibbonVoltageCalibrator:
 
 			random_partitions=random_partition(numpix*3,3)
 			random_colors=bytearray([  0]*random_partitions[0]
-			                       +[127]*random_partitions[1]
-			                       +[255]*random_partitions[2])
+								   +[127]*random_partitions[1]
+								   +[255]*random_partitions[2])
 			shuffle(random_colors)
 
 			progress_pixel=int(numpix*(_/num_samples))

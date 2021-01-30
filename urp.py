@@ -1,7 +1,8 @@
 #r stands for 'micro-rp'
 #This library is originally designed for CircuitPython on my Teensy4.0 and Teensy4.1 boards. If using other implementations or boards, you might need to adapt this code.
 
-filesystem_is_read_only=True
+#Attempt to make the Teensy's drive space writeable...
+read_only=True
 import lightboard.battery
 if lightboard.battery.is_connected():
 	lightboard.display.set_text("BATTERY ON!")
@@ -12,7 +13,7 @@ if lightboard.battery.is_connected():
 		#		OSError: [Errno 30] Read-only filesystem
 		import storage
 		storage.remount('/', readonly=False)
-		filesystem_is_read_only=False
+		read_only=False
 		lightboard.display.set_text("Writeable!")
 	except RuntimeError as error:
 		#When plugged into USB, this doesn't work - and there's no way to write to the filesystem :\
@@ -77,7 +78,7 @@ def save_object_via_umsgpack(object,path):
 	data=umsgpack.packb(object)
 
 def bytes_to_file(data:bytes,path:str=None):
-	assert not filesystem_is_read_only,'Filesystem is read-only - make sure CircuitPython isnt connected to a computer via USB'
+	assert not read_only,'Filesystem is read-only - make sure CircuitPython isnt connected to a computer via USB'
 	assert isinstance(data,bytes)
 	assert isinstance(path,str)
 	try:
@@ -108,6 +109,13 @@ def file_to_object(path:str):
 def object_to_file(object,path:str):
 	return bytes_to_file(object_to_bytes(object),path)
 
-
+def path_exists(path:str):
+	import os
+	try:
+		os.stat(path)
+		return True
+	except OSError:
+		#OSError: [Errno 2] No such file/directory
+		return False
 
 

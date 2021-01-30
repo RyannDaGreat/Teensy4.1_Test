@@ -44,9 +44,9 @@ inner_sprite = displayio.TileGrid(inner_bitmap, pixel_shader=inner_palette, x=20
 splash.append(inner_sprite)
 
 # Draw a label
-text_group = displayio.Group(max_size=10, scale=3, x=57, y=120)
+text_group = displayio.Group(max_size=10, scale=1, x=57, y=120)
 text = "Hello World!"
-text_area = label.Label(terminalio.FONT, text=text, color=0xFFFFFF)
+text_area = label.Label(terminalio.FONT, text=text, color=0xFFFFFF,max_glyphs=250)
 text_group.append(text_area)  # Subgroup for text scaling
 splash.append(text_group)
 
@@ -54,3 +54,12 @@ splash.append(text_group)
 def set_text(text:str):
 	text_area.text=text
 	display.refresh()
+
+class TemporarySetText:
+	def __init__(self,text):
+		self.text=text
+	def __enter__(self):
+		self.old_text=text_area.text
+		text_area.text=self.text
+	def __exit__(self,*args):
+		text_area.text=self.old_text

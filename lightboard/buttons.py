@@ -66,7 +66,6 @@ class MetalButton(Button):
 	@property
 	def value(self):
 		return self.read_io.value
-	
 
 	@property
 	def red(self):
@@ -110,4 +109,62 @@ green_button_3=GreenButton(b3o,b3l)
 green_button_4=GreenButton(b4o,b4l)
 green_buttons=(green_button_1,green_button_2,green_button_3,green_button_4)
 
+def set_green_button_lights(l1,l2,l3,l4):
+	green_button_1.light=l1
+	green_button_2.light=l2
+	green_button_3.light=l3
+	green_button_4.light=l4
+
+def get_green_button_lights():
+	return (green_button_1.light,
+	        green_button_2.light,
+	        green_button_3.light,
+	        green_button_4.light)
+
+class TemporaryGreenButtonLights:
+	#Meant to be used with the 'with' keyword
+	#Temporarily sets the green buttons' lights 
+	def __init__(self,l1=False,l2=False,l3=False,l4=False):
+		self.l1=l1
+		self.l2=l2
+		self.l3=l3
+		self.l4=l4
+	def __enter__(self,*args):
+		self.old_lights=get_green_button_lights()
+		set_green_button_lights(self.l1,self.l2,self.l3,self.l4)
+	def __exit__(self,*args):
+		set_green_button_lights(*self.old_lights)
+
+class TemporaryMetalButtonLights:
+	#Meant to be used with the 'with' keyword
+	#Temporarily sets the green metal button's rgb lights 
+	def __init__(self,r,g,b):
+		self.r=r
+		self.g=g
+		self.b=b
+	def __enter__(self,*args):
+		self.old_metal_color=metal_button.color
+		metal_button.color=(self.r,self.g,self.b)
+	def __exit__(self,*args):
+		metal_button.color=self.old_metal_color
+
+
 metal_button=MetalButton(bmo,bmr,bmg,bmb)
+
+class ButtonPressViewer:
+	def __init__(self,button:Button):
+		self.button=button
+		self.old_value=button.value
+
+	@property
+	def value(self):
+		#Will appear to be True only once per stroke
+		new_value=self.button.value
+		if self.old_value!=new_value and new_value:
+			out = True
+		else:
+			out = False
+		self.old_value=new_value
+		from time import sleep
+		# sleep(.05)#This is a crude, sloppy way of debouncing the button...it's good enough for now lol
+		return out
