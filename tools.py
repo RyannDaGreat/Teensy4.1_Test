@@ -1,5 +1,5 @@
 class HistogramFitter:
-	def __init__(self,bin_size):
+	def __init__(self,bin_size,file_path=None):
 		self.bin_size=bin_size
 		self.histogram_sums={}
 		self.histogram_freqs={}

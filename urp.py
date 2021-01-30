@@ -3,8 +3,6 @@
 
 filesystem_is_read_only=True
 import lightboard.battery
-print("AOISHDOIJS")
-import lightboard.display
 if lightboard.battery.is_connected():
 	lightboard.display.set_text("BATTERY ON!")
 	try:
@@ -22,7 +20,7 @@ if lightboard.battery.is_connected():
 		#	RuntimeError: Cannot remount '/' when USB is active.
 		print("Failed to remount:",error)
 		pass
- 
+
 from time import monotonic_ns
 def millis():
 	return monotonic_ns()//1000000

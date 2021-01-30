@@ -35,21 +35,42 @@ from analogio import AnalogIn as Internal_AnalogIn
 import tools
 import storage
 
-try:
-	#Try to mitigate errors when saving files
-	#		open('file.txt','wb')
-	#	results in...
-	#		OSError: [Errno 30] Read-only filesystem
-	import storage
-	storage.remount('/', readonly=False)
-	import lightboard.display
-	lightboard.display.set_text("WOWZA!")
-except RuntimeError:
-	#When plugged into USB, this doesn't work - and there's no way to write to the filesystem :\
-	#SD cards don't work in the current circuitpython version...
-	#	RuntimeError: Cannot remount '/' when USB is active.
-	print("Failed to remount")
-	pass
+
+import lightboard.neopixels as neopixels
+import lightboard.buttons as buttons
+
+while True:
+	neopixels.fill(buttons.green_button_1.value*128,
+				   buttons.green_button_2.value*128,
+				   buttons.green_button_3.value*128,)
+	buttons.metal_button.color=(buttons.green_button_1.value,
+							   buttons.green_button_2.value,
+							   buttons.green_button_3.value,)
+
+
+neopixels.fill(64,64,0)
+with neopixels.TemporarilyTurnedOff():
+	print("HELLO")
+	time.sleep(1)
+
+time.sleep(1)
+neopixels.fill(0,64,0)
+
+# try:
+# 	#Try to mitigate errors when saving files
+# 	#		open('file.txt','wb')
+# 	#	results in...
+# 	#		OSError: [Errno 30] Read-only filesystem
+# 	import storage
+# 	storage.remount('/', readonly=False)
+# 	import lightboard.display
+# 	lightboard.display.set_text("WOWZA!")
+# except RuntimeError:
+# 	#When plugged into USB, this doesn't work - and there's no way to write to the filesystem :\
+# 	#SD cards don't work in the current circuitpython version...
+# 	#	RuntimeError: Cannot remount '/' when USB is active.
+# 	print("Failed to remount")
+# 	pass
 
 object_to_file("HELLO WORLD!",'file.txt')
 
@@ -173,8 +194,6 @@ class DualTouchReading:
 			self.raw_b=ads_dual_b.value
 		except OSError as exception:
 			raise I2CError(exception)
-
-
 class Squelcher:
 	def __init__(self,callable,value=None,error=None,exception_class=Exception):
 		#Interfaces like a linear module but can take more than just number classes
