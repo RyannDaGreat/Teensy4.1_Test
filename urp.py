@@ -1,6 +1,5 @@
 #r stands for 'micro-rp'
 #This library is originally designed for CircuitPython on my Teensy4.0 and Teensy4.1 boards. If using other implementations or boards, you might need to adapt this code.
-
 #Attempt to make the Teensy's drive space writeable...
 read_only=True
 import lightboard.battery
@@ -24,6 +23,8 @@ if lightboard.battery.is_connected():
 		pass
 
 from time import monotonic_ns
+from micropython import const
+
 def millis():
 	return monotonic_ns()//1000000
 
@@ -119,8 +120,41 @@ def path_exists(path:str):
 		#OSError: [Errno 2] No such file/directory
 		return False
 
+def path_join(path_a:str,path_b:str):
+	#Joins paths together.
+	#	EXAMPLES:
+	#		path_join('folder' , 'file') --> 'folder/file'
+	#		path_join('folder/', 'file') --> 'folder/file'
+	#		path_join('folder/','/file') --> 'folder/file'
+	#		path_join('folder ','/file') --> 'folder/file'
+	#TODO: Make this function handle a variable number of arguments.
+	if path_a.endswith('/'):
+		path_a=path_a[:-1]
+	if path_b.startswith('/'):
+		path_b=path_b[1:]
+	return path_a+'/'+path_b
+
 class EmptyContext:
 	def __enter__(self,*args):
 		pass
 	def __exit__(self,*args):
 		pass
+
+def median(values):
+	values=sorted(values)
+	length=len(values)
+	assert length>0,'Cannot get median of empty list'
+	if length%2:
+		return  values[length//2]
+	else:
+		return (values[length//2]+values[length//2-1])/2
+
+def mean(l):
+	l=list(l)
+	return sum(l)/len(l)
+
+def std(l):
+	u=mean(l)
+	return mean((x-u)**2 for x in l)**.5
+
+

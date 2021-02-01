@@ -37,15 +37,30 @@ import tools
 import storage
 
 import lightboard.ribbons as ribbons
+import lightboard.neopixels as neopixels
+import lightboard.transceiver as transceiver
 
-ribbons.ribbon_a.run_calibration()
-ribbons.ribbon_b.run_calibration()
-
-# # while True:
-# 	pass
-import lightboard.display as display
 while True:
-	reading=ribbons.ribbon_a.cheap_single_touch_reading()
-	if reading.gate :
-		# print(reading.raw_gap)
-		print(reading.raw_value)
+	time.sleep(.5)
+	transceiver.send(midi_note_on())
+	time.sleep(.5)
+	transceiver.send(midi_note_off())
+
+
+old_value=0
+while True:
+	tic()
+	# neopixels.display_fill(255,255,255)
+	reading =ribbons.ribbon_a.processed_cheap_single_touch_reading(blink=False)
+	# neopixels.display_fill(0,0,0)
+	# reading2=ribbons.ribbon_a.processed_cheap_single_touch_reading(blink=False)
+	if reading.gate:
+	# ptoc()
+		print(reading.value*1000)
+	# t=toc()
+	# if t!=0:
+	# 	print(1/t)
+	# if reading.gate:
+	# 	value=reading.value
+	# 	neopixels.display_line(old_value,value)
+	# 	old_value=value

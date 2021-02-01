@@ -7,6 +7,7 @@ import terminalio
 import displayio
 from adafruit_display_text import label
 from adafruit_st7789 import ST7789
+from micropython import const
 
 import digitalio
 
@@ -21,32 +22,36 @@ spi = board.SPI()
 tft_cs = board.D10
 tft_dc = board.D9
 
+WIDTH=const(320)
+HEIGHT=const(240)
+
 display_bus = displayio.FourWire(spi, command=tft_dc, chip_select=tft_cs, reset=board.D6)
 
-display = ST7789(display_bus, width=320, height=240, rotation=90)
+display = ST7789(display_bus, width=WIDTH, height=HEIGHT, rotation=90)
 
 # Make the display context
 splash = displayio.Group(max_size=10)
 display.show(splash)
 
-color_bitmap = displayio.Bitmap(320, 240, 1)
+color_bitmap = displayio.Bitmap(WIDTH, HEIGHT, 1)
 color_palette = displayio.Palette(1)
-color_palette[0] = 0x00FF00  # Bright Green
+color_palette[0] = 0x0000FF  # Bright Blue
 
 bg_sprite = displayio.TileGrid(color_bitmap, pixel_shader=color_palette, x=0, y=0)
 splash.append(bg_sprite)
 
 # Draw a smaller inner rectangle
-inner_bitmap = displayio.Bitmap(280, 200, 1)
+BORDER_THICKNESS=const(10)
+inner_bitmap = displayio.Bitmap(WIDTH-BORDER_THICKNESS*2, HEIGHT-BORDER_THICKNESS*2, 1)
 inner_palette = displayio.Palette(1)
-inner_palette[0] = 0x000000  # Purple
-inner_sprite = displayio.TileGrid(inner_bitmap, pixel_shader=inner_palette, x=20, y=20)
+inner_palette[0] = 0x000000  # Black
+inner_sprite = displayio.TileGrid(inner_bitmap, pixel_shader=inner_palette, x=BORDER_THICKNESS, y=BORDER_THICKNESS)
 splash.append(inner_sprite)
 
 # Draw a label
-text_group = displayio.Group(max_size=10, scale=1, x=57, y=120)
+text_group = displayio.Group(max_size=10, scale=1, x=25, y=25)
 text = "Hello World!"
-text_area = label.Label(terminalio.FONT, text=text, color=0xFFFFFF,max_glyphs=250)
+text_area = label.Label(terminalio.FONT, text=text, color=0xFFFFFF,max_glyphs=512)
 text_group.append(text_area)  # Subgroup for text scaling
 splash.append(text_group)
 
@@ -63,3 +68,4 @@ class TemporarySetText:
 		text_area.text=self.text
 	def __exit__(self,*args):
 		text_area.text=self.old_text
+

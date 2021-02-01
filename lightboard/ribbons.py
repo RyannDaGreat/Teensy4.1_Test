@@ -2,6 +2,10 @@
 ribbon_a=None
 ribbon_b=None
 
+##########HUGE NOTE:
+##########As it turns out, the internal ADC in the Teensy is NOT very susceptible to fluctuations in the Neopixels' current...BUT...the ADS1115 IS. 
+##########Therefore, I think a better model would ditch the ADS1115 alltogether - replacing it with a simple 8x toggleable amp for dual touches. 
+
 __all__=['ribbon_a','ribbon_b']
 
 from urp import *
@@ -17,6 +21,9 @@ from tools import *
 import storage
 from linear_modules import *
 import lightboard.neopixels as neopixels
+import time
+from micropython import const
+
 
 i2c = busio.I2C(board.SCL, board.SDA, frequency=1000000)# Create the I2C bus with a fast frequency
 
@@ -24,12 +31,12 @@ i2c = busio.I2C(board.SCL, board.SDA, frequency=1000000)# Create the I2C bus wit
 ads_a = ADS.ADS1115(i2c,address=0x48) 
 ads_b = ADS.ADS1115(i2c,address=0x4a) 
 
-data_rate=860 # Maximum number of samples per second
+data_rate=const(860) # Maximum number of samples per second
 ads_a.data_rate = data_rate
 ads_b.data_rate = data_rate
 
-ads_gain_single=1
-ads_gain_dual  =8 #Uses 100kΩ
+ads_gain_single=const(1)
+ads_gain_dual  =const(8) #Uses 100kΩ
 
 #Change the gains depending on whether you're measuring dual or single touches
 ads_a.gain=ads_gain_single
@@ -39,7 +46,7 @@ ads_a_a0 = ADS1115_AnalogIn(ads_a, ADS.P0)
 ads_a_a1 = ADS1115_AnalogIn(ads_a, ADS.P1)
 ads_a_a2 = ADS1115_AnalogIn(ads_a, ADS.P2)
 ads_a_single=ads_a_a0
-ads_a_dual_a=ads_a_a1
+ads_a_dual_top=ads_a_a1
 ads_a_dual_b=ads_a_a2
 rib_a_mid = Internal_AnalogIn(board.D26)
 
@@ -47,7 +54,7 @@ ads_b_a0 = ADS1115_AnalogIn(ads_b, ADS.P0)
 ads_b_a1 = ADS1115_AnalogIn(ads_b, ADS.P1)
 ads_b_a2 = ADS1115_AnalogIn(ads_b, ADS.P2)
 ads_b_single=ads_b_a0
-ads_b_dual_a=ads_b_a1
+ads_b_dual_top=ads_b_a1
 ads_b_dual_b=ads_b_a2
 rib_b_mid = Internal_AnalogIn(board.D27)
 
@@ -74,55 +81,90 @@ class I2CError(OSError):
 	pass
 
 class Ribbon:
-	def __init__(self,name,rib_mid,ads,ads_single,ads_dual_a,ads_dual_b):
+
+	ADS_BIN_SIZE=100
+	RIB_BIN_SIZE=100
+	CALIBRATION_FOLDER='/generated/calibrations/ribbons'
+
+	def __init__(self,name,rib_mid,ads,ads_single,ads_dual_top,ads_dual_bot):
 		self.name=name
 		self.rib_mid=rib_mid
 		self.ads=ads
 		self.ads_single=ads_single
-		self.ads_dual_a=ads_dual_a
-		self.ads_dual_b=ads_dual_b
+		self.ads_dual_top=ads_dual_top
+		self.ads_dual_bot=ads_dual_bot
 
-		dual_touch_a_to_neopixel_calibration_path       = self.name+'dual_touch_a_to_neopixel_calibration'
-		dual_touch_b_to_neopixel_calibration_path       = self.name+'dual_touch_b_to_neopixel_calibration'
-		single_touch_to_neopixel_calibration_path       = self.name+'single_touch_to_neopixel_calibration'
-		cheap_single_touch_to_neopixel_calibration_path = self.name+'cheap_single_touch_to_neopixel_calibration'
+		dual_touch_top_to_neopixel_calibration_path     = path_join(self.CALIBRATION_FOLDER,self.name+'_dual_touch_top_to_neopixel_calibration'      )
+		dual_touch_bot_to_neopixel_calibration_path     = path_join(self.CALIBRATION_FOLDER,self.name+'_dual_touch_bot_to_neopixel_calibration'      )
+		single_touch_to_neopixel_calibration_path       = path_join(self.CALIBRATION_FOLDER,self.name+'_single_touch_to_neopixel_calibration'      )
+		cheap_single_touch_to_neopixel_calibration_path = path_join(self.CALIBRATION_FOLDER,self.name+'_cheap_single_touch_to_neopixel_calibration')
 
-		dual_touch_a_to_neopixel_calibration       = HistogramFitter(dual_touch_a_to_neopixel_calibration_path      )
-		dual_touch_b_to_neopixel_calibration       = HistogramFitter(dual_touch_b_to_neopixel_calibration_path      )
-		single_touch_to_neopixel_calibration       = HistogramFitter(single_touch_to_neopixel_calibration_path      )
-		cheap_single_touch_to_neopixel_calibration = HistogramFitter(cheap_single_touch_to_neopixel_calibration_path)
+		self.dual_touch_top_to_neopixel_calibration     = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=dual_touch_top_to_neopixel_calibration_path      ,auto_load=True)
+		self.dual_touch_bot_to_neopixel_calibration     = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=dual_touch_bot_to_neopixel_calibration_path      ,auto_load=True)
+		self.single_touch_to_neopixel_calibration       = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=single_touch_to_neopixel_calibration_path      ,auto_load=True)
+		self.cheap_single_touch_to_neopixel_calibration = HistogramFitter(bin_size=self.RIB_BIN_SIZE,file_path=cheap_single_touch_to_neopixel_calibration_path,auto_load=True)
+
+		self.previous_gate=False
+
+		self.dual_num_fingers=0
+		dual_filter_moving_average_length=3
+		dual_filter_soft_tether_size=.1
+		dual_filter_tether_size=.05
+		self.dual_bot_filter=NoiseFilter(moving_average_length=dual_filter_moving_average_length,soft_tether_size=dual_filter_soft_tether_size,tether_size=dual_filter_tether_size)
+		self.dual_top_filter=NoiseFilter(moving_average_length=dual_filter_moving_average_length,soft_tether_size=dual_filter_soft_tether_size,tether_size=dual_filter_tether_size)
+
+		self.cheap_single_filter=NoiseFilter(moving_average_length=3,soft_tether_size=.3,tether_size=.01,moving_median_length=3)
+
+
+	@property
+	def is_calibrated(self):
+		return self.dual_touch_top_to_neopixel_calibration      .is_fitted and \
+		       self.dual_touch_bot_to_neopixel_calibration      .is_fitted and \
+		       self.single_touch_to_neopixel_calibration      .is_fitted and \
+		       self.cheap_single_touch_to_neopixel_calibration.is_fitted
 
 	def dual_touch_reading(self):
-		return DualTouchReading(self)
+		reading=DualTouchReading(self)
+		#DualTouchReading objects don't have a gate as of right now (though they will probably soon - we can get the gate by comparing the top value to the bot value and setting a threshold)
+		return reading
 
 	def single_touch_reading(self):
-		return SingleTouchReading(self)
+		reading=SingleTouchReading(self)
+		self.previous_gate=reading.gate
+		return reading
 
 	def cheap_single_touch_reading(self):
-		return CheapSingleTouchReading(self)
+		reading=CheapSingleTouchReading(self)
+		self.previous_gate=reading.gate
+		return reading
 
-	def processed_single_touch_reading(self):
-		return ProcessedSingleTouchReading(self)
+	def processed_single_touch_reading(self,blink=True):
+		# if not self.is_calibrated: #Unnessecary CPU time...its cheap but so unimportant...
+			# print("Ribbon.processed_single_touch_reading: Warning: This ribbon is not calibrated!")
+		reading=ProcessedSingleTouchReading(self,blink=blink)
+		self.previous_gate=reading.gate
+		return reading
 
-	def processed_dual_touch_reading(self):
-		return ProcessedDualTouchReading(self)
+	def processed_cheap_single_touch_reading(self,blink=True):
+		reading=ProcessedCheapSingleTouchReading(self,blink=blink)
+		self.previous_gate=reading.gate
+		return reading
+
+	def processed_dual_touch_reading(self,blink=True):
+		reading=ProcessedDualTouchReading(self,blink=blink)
+		self.previous_gate=reading.gate
+		return reading
 	
-	def run_calibration(self,samples_per_pixel=25,ads_bin_size=100,rib_bin_size=100):
+	def run_calibration(self,samples_per_pixel=25):
 		import lightboard.display as display
 		import lightboard.neopixels as neopixels
 		import lightboard.buttons as buttons
 		import lightboard.widgets as widgets
 
-		def display_dot(index,r=63,g=63,b=63):
-			index=max(0,min(index,neopixels.length-1))
-			neopixel_data=bytearray([0,0,0]*3*neopixels.length)
-			neopixel_data[index*3:index*3+3]=bytearray([g,r,b])
-			neopixels.write(neopixel_data)
-
-		dual_touch_a_to_neopixel_calibration       = HistogramFitter(bin_size=ads_bin_size)
-		dual_touch_b_to_neopixel_calibration       = HistogramFitter(bin_size=ads_bin_size)
-		single_touch_to_neopixel_calibration       = HistogramFitter(bin_size=ads_bin_size)
-		cheap_single_touch_to_neopixel_calibration = HistogramFitter(bin_size=rib_bin_size)
+		dual_touch_top_to_neopixel_calibration     = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=self.dual_touch_top_to_neopixel_calibration      .file_path,auto_load=False)
+		dual_touch_bot_to_neopixel_calibration     = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=self.dual_touch_bot_to_neopixel_calibration      .file_path,auto_load=False)
+		single_touch_to_neopixel_calibration       = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=self.single_touch_to_neopixel_calibration      .file_path,auto_load=False)
+		cheap_single_touch_to_neopixel_calibration = HistogramFitter(bin_size=self.RIB_BIN_SIZE,file_path=self.cheap_single_touch_to_neopixel_calibration.file_path,auto_load=False)
 
 		buttons.metal_button.color=(255,0,255)
 
@@ -133,7 +175,7 @@ class Ribbon:
 
 
 		i=0
-		display_dot(i,63,0,0)
+		neopixels.display_dot(i,63,0,0)
 		while True:
 			reading=self.cheap_single_touch_reading()
 			if reading.gate:
@@ -148,7 +190,7 @@ class Ribbon:
 				refresh_flag=True
 			if refresh_flag:
 				i=min(neopixels.length-1,max(0,i))
-				display_dot(i,63,0,0)
+				neopixels.display_dot(i,63,0,0)
 
 			if buttons.metal_button.value:
 				if widgets.input_yes_no("Do you want to cancel calibration?\n(All progress will be lost)"):
@@ -158,15 +200,17 @@ class Ribbon:
 		button_press_skip=buttons.ButtonPressViewer(buttons.green_button_1)
 		button_press_back=buttons.ButtonPressViewer(buttons.green_button_2)
 		button_press_finished=buttons.ButtonPressViewer(buttons.green_button_3)
-		buttons.set_green_button_lights(1,1,1,0)
+		buttons.set_green_button_lights(1,1,0,0)
 
-		display.set_text('Running calibration on ribbon '+self.name+'\nPlease press cyan dots on ribbon\nuntil they become orange\nPress the 3rd green button when you\'re done\nPress button 1 to skip the current dot\nPress button 2 to go back a dot')
+		display.set_text('Running calibration on ribbon '+self.name+'\nPlease press cyan dots on ribbon\nuntil they become orange\nPress the 3rd green button when you\'re done\n(If the 3rd green button isnt lit, calibrate at least two points)\nPress button 1 to skip the current dot\nPress button 2 to go back a dot')
 		finished=False
-		while i<neopixels.length and not finished:
+		num_pixels_calibrated=0 #We need at least two to be useful...
+		while not finished:
 			i=max(0,min(i,neopixels.length-1))
-			display_dot(i,0,63,63)
+			neopixels.display_dot(i,0,63,63)
 			pixel_num_samples=0
-			while pixel_num_samples<samples_per_pixel:
+			while True:
+				buttons.green_button_3.light=num_pixels_calibrated>=2
 				if buttons.metal_button.value:
 					if widgets.input_yes_no("Do you want to cancel calibration?\n(All progress will be lost)"):
 						return
@@ -175,7 +219,7 @@ class Ribbon:
 				if button_press_back.value:
 					i-=2
 					break
-				if button_press_finished.value:
+				if button_press_finished.value and num_pixels_calibrated>=2:
 					if widgets.input_yes_no("Are you sure your're done\ncalibrating this ribbon?"):
 						finished=True
 						break
@@ -185,20 +229,28 @@ class Ribbon:
 						single_touch_reading      =self.single_touch_reading()
 						dual_touch_reading        =self.dual_touch_reading()
 
-						dual_touch_a_to_neopixel_calibration      .add_sample(dual_touch_reading        .raw_a    ,i)
-						dual_touch_b_to_neopixel_calibration      .add_sample(dual_touch_reading        .raw_b    ,i)
+						dual_touch_top_to_neopixel_calibration      .add_sample(dual_touch_reading        .raw_a    ,i)
+						dual_touch_bot_to_neopixel_calibration      .add_sample(dual_touch_reading        .raw_b    ,i)
 						single_touch_to_neopixel_calibration      .add_sample(single_touch_reading      .raw_value,i)
 						cheap_single_touch_to_neopixel_calibration.add_sample(cheap_single_touch_reading.raw_value,i)
 
 						pixel_num_samples+=1
+
+				if pixel_num_samples>=samples_per_pixel:
+					num_pixels_calibrated+=1
+					break
+
 			i+=1
-			display_dot(i,63,31,0)
+			neopixels.display_dot(i,63,31,0)
 			while self.cheap_single_touch_reading().gate:
 				pass
 
-		display.set_text('Finished calibration on ribbon '+self.name+'\nWould you like to save it?\nPrinting out sensor values to serial for a demo\n(Watch in the arduino plotter)')
-
+		buttons.set_green_button_lights(0,0,0,0)
+		buttons.metal_button.color=(0,1,1)
 		neopixels.turn_off()
+
+		display.set_text('Finished calibration on ribbon '+self.name+'\nTry the ribbon out to see if you like it\nAlso rinting out sensor values to serial for a demo\n(Watch in the arduino plotter)\nPress the metal button when you\'re done')
+
 
 		while not buttons.metal_button.value:
 			if self.cheap_single_touch_reading().gate:
@@ -207,18 +259,19 @@ class Ribbon:
 					single_touch_reading      =self.single_touch_reading()
 					dual_touch_reading        =self.dual_touch_reading()
 
-					dual_a      =dual_touch_a_to_neopixel_calibration      (dual_touch_reading        .raw_a    )
-					dual_b      =dual_touch_b_to_neopixel_calibration      (dual_touch_reading        .raw_b    )
+					dual_top      =dual_touch_top_to_neopixel_calibration      (dual_touch_reading        .raw_a    )
+					dual_b      =dual_touch_bot_to_neopixel_calibration      (dual_touch_reading        .raw_b    )
 					single      =single_touch_to_neopixel_calibration      (single_touch_reading      .raw_value)
 					cheap_single=cheap_single_touch_to_neopixel_calibration(cheap_single_touch_reading.raw_value)
 
 					if cheap_single_touch_reading.gate and single_touch_reading.gate:
 
-						display_dot(int(cheap_single),0,128,0)
+						neopixels.display_dot(int(cheap_single),0,128,0)
 
-						print(dual_a,dual_b,single,cheap_single)
+						print(dual_top,dual_b,single,cheap_single)
 
-		display.set_text("Now for a smoooooth demo...")
+		buttons.metal_button.color=(1,0,1)
+		display.set_text("Now for a smoooooth demo...\n(Press the metal button when you're done)")
 
 		#This is a show-offy demo lol. Try miscalibrating it such that a tiny vibrato makes it move from one side of the lightwave to the otehr...
 		DISCRETE=True
@@ -247,28 +300,54 @@ class Ribbon:
 				else:
 					Val=(val)
 				val=single_touch_to_neopixel_calibration(Val)
-				display_dot(int(val),64,0,128)
+				neopixels.display_dot(int(val),64,0,128)
 			else:
 				V.clear()
 				tether.value=None
 
-		if input_yes_no("Would you like to save this\ncalibration for ribbon "+self.name+"?"):
-			self.dual_touch_a_to_neopixel_calibration      =dual_a      
-			self.dual_touch_b_to_neopixel_calibration      =dual_b      
-			self.single_touch_to_neopixel_calibration      =single      
-			self.cheap_single_touch_to_neopixel_calibration=cheap_single
-			dual_a      .save_to_file()
-			dual_b      .save_to_file()
-			single      .save_to_file()
-			cheap_single.save_to_file()
-			display.set_text("Saved!")
+		neopixels.turn_off()
+
+		if widgets.input_yes_no("Would you like to save this\ncalibration for ribbon "+self.name+"?"):
+			self.dual_touch_top_to_neopixel_calibration      =dual_touch_top_to_neopixel_calibration      
+			self.dual_touch_bot_to_neopixel_calibration      =dual_touch_bot_to_neopixel_calibration      
+			self.single_touch_to_neopixel_calibration      =single_touch_to_neopixel_calibration      
+			self.cheap_single_touch_to_neopixel_calibration=cheap_single_touch_to_neopixel_calibration
+			self.dual_touch_top_to_neopixel_calibration      .save_to_file()
+			self.dual_touch_bot_to_neopixel_calibration      .save_to_file()
+			self.single_touch_to_neopixel_calibration      .save_to_file()
+			self.cheap_single_touch_to_neopixel_calibration.save_to_file()
+			display.set_text("Saved calibrations for ribbon "+self.name+"!")
 		else:
-			display.set_text("Cancelled.")
+			display.set_text("Cancelled. No calibrations were saved.")
 
+		time.sleep(2)
 
+class NoiseFilter:
+	#This is a LinearModule
+	#It should be cleared whever the gate is off
+	def __init__(self,moving_average_length=10,
+	                  soft_tether_size     =5,
+	                  tether_size          =1,
+	                  moving_median_length =1):
+		self.moving_average=MovingAverage(moving_average_length)
+		self.soft_tether=SoftTether(size=soft_tether_size)
+		self.tether=Tether(size=tether_size)
+		self.moving_median=MovingMedian(moving_median_length)
+	def __call__(self,value):
+		value=self.moving_average(value)
+		value=self.soft_tether   (value)
+		value=self.tether        (value)
+		value=self.moving_median (value)
+		return value
+	def clear(self):
+		self.soft_tether   .clear()
+		self.tether        .clear()
+		self.moving_average.clear()
+		self.moving_median .clear()
+	def copy(self):
+		#Create a duplicate filter with the same parameters
+		return NoiseFilter(self.moving_average.length,self.soft_tether.size,self.tether.size)
 
-ribbon_a=Ribbon('a',rib_a_mid,ads_a,ads_a_single,ads_a_dual_a,ads_a_dual_b)
-ribbon_b=Ribbon('b',rib_b_mid,ads_b,ads_b_single,ads_b_dual_a,ads_b_dual_b)
 
 class SingleTouchReading:
 	GATE_THRESHOLD=500 #This needs to be calibrated after observing the raw_gap when touching and not touching the ribbon. You can do this automatically with some fancy algorithm, or you can just look at the serial monitor while printing reading.raw_gap over and over again
@@ -321,7 +400,7 @@ class CheapSingleTouchReading(SingleTouchReading):
 	#		Even though the raw range is the same for both analog_in and ads_single, we need a larger GATE_THRESHOLD for CheapSingleTouchReading beacause of this flaw in Teensy's ADC.
 	#Uses the Teensy's internal ADC that can read up to 6000x per second
 	#TODO: Implement a variation of the SingleTouchReading class called quick-gate check via the Teensy's internal ADC to save a bit of time and get more accurate results on the dual touch readings (because then we can check both upper and lower both before and after the dual readings which means less spikes)
-	GATE_THRESHOLD=5000
+	GATE_THRESHOLD=1000
 	def read_raw_lower(self):
 		self.prepare_to_read()
 		single_pull.value=False
@@ -337,8 +416,8 @@ class DualTouchReading:
 		self.ribbon=ribbon
 		self.prepare_to_read()
 		try:
-			self.raw_a=self.ribbon.ads_dual_a.value
-			self.raw_b=self.ribbon.ads_dual_b.value
+			self.raw_a=self.ribbon.ads_dual_top.value
+			self.raw_b=self.ribbon.ads_dual_bot.value
 		except OSError as exception:
 			raise I2CError(exception)
 
@@ -347,7 +426,24 @@ class DualTouchReading:
 		self.ribbon.ads.gain=ads_gain_dual
 
 class ProcessedDualTouchReading:
-	def __init__(self,ribbon):
+	__slots__=['gate','bot','top','middle']
+
+	DELTA_THRESHOLD=-2 # A distance, measured in neopixel widths, that the two dual touches can be apart from one another before registering as not being touched. (This is because, as it turns out, it can sometimes take more than one sample for dual touch values to go all the way back to the top after releasing your finger from the ribbon)
+	#You want to calibrate DELTA_THRESHOLD such that it's high enough to keep good readings once you release your finger, but low enough that it doesn't require pressing down too hard to activate. 
+	#DELTA_THRESHOLD can be a negative value.
+	#DELTA_THRESHOLD might need to be changed if you calibrate with a pencil eraser instead of your fingertip, because the pencil eraser is a narrower touch area etc.
+	#You should always calibrate using your finger for this reason...
+
+	TWO_TOUCH_THRESHOLD=2#A distance, measured in neopixel widths, that the dual readings must be apart from each other to register as 
+	TWO_TOUCH_THRESHOLD_SLACK=.05 #A bit of hysterisis used here...like a tether. Basically, to prevent flickering on the bonudary, to switch between two touch and one touch you must move this much distance.
+
+	def __init__(self,ribbon,blink=True):
+		#If self.gate is False, your code shouldn't try to check for a .bot, .top, or .middle value - as it was never measured
+		#If your fingers are pressing the ribbon in two different places, after calibration the 'top' value should be above the 'bot' value
+		#	In the event that the hardware of the z
+
+		previous_gate=ribbon.previous_gate
+
 		single_before=ribbon.cheap_single_touch_reading()
 
 		if not single_before.gate:
@@ -355,41 +451,95 @@ class ProcessedDualTouchReading:
 			#Don't waste time with the dual touch reading if one of the gates is False
 			return
 
-		dual=ribbon.dual_touch_reading()
+		with neopixels.TemporarilyTurnedOff() if blink else EmptyContext():
+			dual_reading=ribbon.dual_touch_reading()
 
 		single_after=ribbon.cheap_single_touch_reading()
 
+		if not previous_gate:
+			ribbon.dual_bot_filter.clear()
+			ribbon.dual_top_filter.clear()
+
 		self.gate=single_before.gate and single_after.gate
 		if self.gate:
-			self.dual_a=ribbon.dual_touch_a_to_neopixel_calibration(dual.raw_a)
-			self.dual_b=ribbon.dual_touch_b_to_neopixel_calibration(dual.raw_b)
-			self.single=(single_before.raw_value+single_after.raw_value)/2
-			self.single=ribbon.cheap_single_touch_to_neopixel_calibration(self.single)
+			#TODO: Lower the DELTA_THRESHOLD and use self.middle whenever it gets too crazy; that way we can have maximum sensitivity and never miss a sample...
+			mid=(single_before.raw_value+single_after.raw_value)/2
+			top=dual_reading.raw_a
+			bot=dual_reading.raw_b
+
+			top=ribbon.dual_touch_top_to_neopixel_calibration(top)
+			bot=ribbon.dual_touch_bot_to_neopixel_calibration(bot)
+			mid=ribbon.cheap_single_touch_to_neopixel_calibration(mid)
+			delta=top-bot
+
+			old_num_fingers=ribbon.dual_num_fingers
+			changed_num_fingers=False
+			if not previous_gate:
+				 ribbon.dual_num_fingers = 2 if delta>self.TWO_TOUCH_THRESHOLD else 1
+				 changed_num_fingers=old_num_fingers!=ribbon.dual_num_fingers
+			elif ribbon.dual_num_fingers == 1 and delta>self.TWO_TOUCH_THRESHOLD+self.TWO_TOUCH_THRESHOLD_SLACK:
+				 ribbon.dual_num_fingers = 2
+				 changed_num_fingers=old_num_fingers!=ribbon.dual_num_fingers
+			elif ribbon.dual_num_fingers == 2 and delta<self.TWO_TOUCH_THRESHOLD-self.TWO_TOUCH_THRESHOLD_SLACK:
+				 ribbon.dual_num_fingers = 1
+				 changed_num_fingers=old_num_fingers!=ribbon.dual_num_fingers
+			self.num_fingers=ribbon.dual_num_fingers
+
+			# if changed_num_fingers:
+			# 	ribbon.dual_bot_filter.clear()
+			# 	ribbon.dual_top_filter.clear()
+
+			self.gate=self.gate and delta>self.DELTA_THRESHOLD
+			if self.gate:
+				if bot>top:
+					#The only time self.bot>self.top is when your're barely pressing on the ribbon at all...
+					#...we can average these two values out to get a single, more reasonable value
+					bot=top=(bot+top)/2
+
+				if self.num_fingers==1:
+					bot=top=sorted((top,bot,mid))[1]
+
+				self.top=ribbon.dual_top_filter(top)
+				self.bot=ribbon.dual_bot_filter(bot)
+				self.mid=mid
 
 class ProcessedSingleTouchReading:
-	__slots__=['gate']
-	def __init__(self,ribbon,blink=False):
-		if not hasattr(ribbon,'previous_processed_single_touch_reading_gate'):
-			previous_processed_single_touch_reading_gate=False
-		if ribbon.previous_processed_single_touch_reading_gate:
+	def __init__(self,ribbon,blink=True):
+		if ribbon.previous_gate:
 			#If it was previously pressed, don't check the gate with the expensive reading...
 			with neopixels.TemporarilyTurnedOff() if blink else EmptyContext():
 				single_touch_reading=ribbon.single_touch_reading()
 			self.gate=single_touch_reading.gate
 		else:
 			cheap_single_touch_reading=ribbon.cheap_single_touch_reading()
-			if cheap_single_touch_reading.gate():
+			if cheap_single_touch_reading.gate:
 				with neopixels.TemporarilyTurnedOff() if blink else EmptyContext():
 					single_touch_reading=ribbon.single_touch_reading()
 				self.gate=single_touch_reading.gate
 			else:
 				self.gate=False
-		ribbon.previous_processed_single_touch_reading_gate=self.gate
 
 		if self.gate:
 			self.raw_value=single_touch_reading.raw_value
 			self.value=ribbon.single_touch_to_neopixel_calibration(self.raw_value)
 
+class ProcessedCheapSingleTouchReading:
+	def __init__(self,ribbon,blink=True):
+		with neopixels.TemporarilyTurnedOff() if blink else EmptyContext():
+			if not ribbon.previous_gate:
+				ribbon.cheap_single_touch_reading()#Sometimes it spikes on the first value for some reason...idk why
+			cheap_single_touch_reading=ribbon.cheap_single_touch_reading()
+		self.gate=cheap_single_touch_reading.gate
+
+		if self.gate:
+			self.raw_value=cheap_single_touch_reading.raw_value
+			self.value=ribbon.cheap_single_touch_to_neopixel_calibration(self.raw_value)
+			self.value=ribbon.cheap_single_filter(self.value)
+		else:
+			ribbon.cheap_single_filter.clear()
+			# pass
 
 
 
+ribbon_a=Ribbon('a',rib_a_mid,ads_a,ads_a_single,ads_a_dual_top,ads_a_dual_b)
+ribbon_b=Ribbon('b',rib_b_mid,ads_b,ads_b_single,ads_b_dual_top,ads_b_dual_b)

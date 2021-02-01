@@ -1,11 +1,17 @@
 from urp import *
 
 class HistogramFitter:
-	def __init__(self,bin_size=None,file_path=None):
+	#This code is really messy. It's ok though...
+	#Memory improvements might be made by using lists or arrays instead of dicts...
+	def __init__(self,bin_size=None,file_path=None,auto_load=True):
 		self.file_path=file_path
 		assert self.file_path is None or isinstance(self.file_path,str)
-		if self.file_path is not None and path_exists(self.file_path):
-			self.load_from_file(self.file_path)
+		if auto_load and self.file_path is not None and path_exists(self.file_path):
+			try:
+				self.load_from_file(self.file_path)
+			except Exception:
+				print("Failed to auto_load HistogramFitter file: "+self.file_path)
+				raise
 		else:
 			assert bin_size is not None,'HistogramFitter: Did not load from file, but bin_size was None - we have nothing to initialize with.'
 			self.bin_size=bin_size
@@ -16,14 +22,16 @@ class HistogramFitter:
 	def save_to_file(self,path=None):
 		if path is None:
 			path=self.file_path
-		data = self._verified, self.bin_size, self.histogram_sums, self.histogram_freqs
+		self.verify()
+		data = self._verified, self.bin_size, self.histogram_sums, self.histogram_freqs, self.max_bin, self.min_bin
 		object_to_file(data,path)
 
 	def load_from_file(self,path):
 		if path is None:
 			path=self.file_path
 		data=file_to_object(path)
-		self._verified, self.bin_size, self.histogram_sums, self.histogram_freqs = data
+		self._verified, self.bin_size, self.histogram_sums, self.histogram_freqs, self.max_bin, self.min_bin = data
+		assert self._verified,'Internal logical assertion: self._verified should be True because self.verify() is called before self.save_to_file() completes'
 		
 	def add_sample(self,x,y):
 		x/=self.bin_size
@@ -106,9 +114,15 @@ class HistogramFitter:
 			prev_sum =self.histogram_sums [i]
 			
 		self._verified=True
-	
+
+	@property
+	def is_fitted(self):
+		#If this HistogramFitter is virgin, return False
+		#If there's even one calibration point though, return True
+		return len(self.histogram_sums)>0
+
 	def __call__(self,x):
-		if len(self.histogram_sums)==0:
+		if not self.is_fitted:
 			#If we haven't calibrated anything yet, just return the identity...
 			#...it makes more sense than crashing does in most contexts.
 			return x
