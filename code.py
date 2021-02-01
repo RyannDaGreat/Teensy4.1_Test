@@ -24,8 +24,6 @@
 
 # from linear_modules import *
 
-# import lightboard.transceiver as transceiver
-1/0
 
 from urp import *
 import time
@@ -41,27 +39,153 @@ import storage
 
 import lightboard.ribbons as ribbons
 import lightboard.neopixels as neopixels
+import lightboard.widgets as widgets
+import lightboard.transceiver as transceiver
+
+
+
+if widgets.input_yes_no("Would you like to calibrate the ribbon?"):
+	ribbons.ribbon_a.run_calibration()
+#TODO: Make this into a function somehow so we can then autotune it
+note=None
+bend_range=48 #Make sure you set your synths in FL studio to accomadate this
+alloff=b''.join([midi_note_off(note) for note in range(128)])
+fast=False
+# midi_note_off=lambda *args:b''
+
+midi_messages_per_second=60
+
+midi_message_state={'notes_off':set()}
+def send_state():
+	global midi_message_state
+	print(midi_message_state)
+	message=b''
+	if 'pitch_bend' in midi_message_state:
+		message+=midi_pitch_bend_from_semitones(midi_message_state['pitch_bend'],-bend_range,bend_range)
+	if 'note_on' in midi_message_state:
+		message+=midi_note_on(midi_message_state['note_on'])
+	if 'notes_off' in midi_message_state:
+		message+=b''.join([midi_note_off(note) for note in set(midi_message_state['notes_off'])])
+	transceiver.send(message,fast=fast)
+	midi_message_state={'notes_off':set()}
+
+def note_on(note):
+	midi_message_state['note_on']=note
+	if note in midi_message_state['notes_off']:
+		midi_message_state['notes_off']-={note}
+
+def gate_off(note):
+	global midi_message_state
+	midi_message_state={'notes_off':midi_message_state['notes_off']|{note}}
+
+def note_off(note):
+	midi_message_state['notes_off']|={note}
+	if midi_message_state['note_on']==note:
+		del midi_message_state['note_on']
+
+def pitch_bend(semitones):
+	midi_message_state['pitch_bend']=semitones
+
+last_midi_time=seconds()
+while True:
+	reading=ribbons.ribbon_a.processed_cheap_single_touch_reading()
+	if reading.gate:
+		value=reading.value
+		new_note=int(value)
+		remainder=value-new_note
+		if new_note != note:
+			neopixels.display_dot(new_note)
+			if note is None:
+				note_on(new_note)
+				pitch_bend(remainder)
+				note=new_note
+			else:
+				if abs(value-note)>bend_range:
+					note_on(new_note)
+					note_off(note)
+					pitch_bend(remainder)
+					note=new_note
+				else:
+					pitch_bend(value-note)
+		else:
+			pitch_bend(remainder)
+	else:
+		if note is not None:
+			gate_off(note)
+			note=None
+	if seconds()-last_midi_time>1/midi_messages_per_second:
+		last_midi_time=seconds()
+		send_state()
+
+
+# if widgets.input_yes_no("Would you like to calibrate the ribbon?"):
+# 	ribbons.ribbon_a.run_calibration()
+
+# #TODO: Make this into a function somehow so we can then autotune it
+# note=None
+# bend_range=48 #Make sure you set your synths in FL studio to accomadate this
+# alloff=b''.join([midi_note_off(note) for note in range(128)])
+# # midi_note_off=lambda *args:b''
+# while True:
+# 	tic()
+# 	reading=ribbons.ribbon_a.processed_cheap_single_touch_reading()
+# 	if reading.gate:
+# 		value=reading.value
+# 		new_note=int(value)
+# 		remainder=value-new_note
+# 		if new_note != note:
+# 			neopixels.display_dot(new_note)
+# 			if note is None:
+# 				transceiver.send(midi_note_on(new_note)+midi_pitch_bend_from_semitones(remainder,-bend_range,bend_range))
+# 				note=new_note
+# 			else:
+# 				if abs(value-note)>bend_range:
+# 					transceiver.send(midi_note_on(new_note)\
+# 						+midi_note_off(note)
+# 						+midi_pitch_bend_from_semitones(remainder,-bend_range,bend_range))
+# 					note=new_note
+# 				else:
+# 					transceiver.send(midi_pitch_bend_from_semitones(value-note,-bend_range,bend_range))
+# 			ptoc()
+# 		else:
+# 			transceiver.send(midi_pitch_bend_from_semitones(remainder,-bend_range,bend_range))
+# 	else:
+# 		if note is not None:
+# 			transceiver.send(midi_note_off(note))
+# 			# transceiver.send(alloff)
+# 			ptoc()
+# 			note=None
+
+
+
+
 
 # while True:
-# 	time.sleep(.5)
-# 	transceiver.send(midi_note_on())
-# 	time.sleep(.5)
-# 	transceiver.send(midi_note_off())
-
-old_value=0
-while True:
-	tic()
-	# neopixels.display_fill(255,255,255)
-	reading =ribbons.ribbon_a.processed_cheap_single_touch_reading(blink=False)
-	# neopixels.display_fill(0,0,0)
-	# reading2=ribbons.ribbon_a.processed_cheap_single_touch_reading(blink=False)
-	if reading.gate:
-	# ptoc()
-		print(reading.value*1000)
-	# t=toc()
-	# if t!=0:
-	# 	print(1/t)
-	# if reading.gate:
-	# 	value=reading.value
-	# 	neopixels.display_line(old_value,value)
-	# 	old_value=value
+# 	tic()
+# 	reading=ribbons.ribbon_a.processed_cheap_single_touch_reading()
+# 	if reading.gate:
+# 		value=reading.value
+# 		new_note=int(value)
+# 		remainder=value-new_note
+# 		if new_note != note:
+# 			neopixels.display_dot(new_note)
+# 			if note is None:
+# 				transceiver.send(midi_note_on(new_note)+midi_pitch_bend_from_semitones(remainder,-bend_range,bend_range),fast=fast)
+# 				note=new_note
+# 			else:
+# 				if abs(value-note)>bend_range:
+# 					transceiver.send(midi_note_on(new_note)+
+# 						+midi_note_off(note)
+# 						+midi_pitch_bend_from_semitones(remainder,-bend_range,bend_range),fast=fast)
+# 					note=new_note
+# 				else:
+# 					transceiver.send(midi_pitch_bend_from_semitones(value-note,-bend_range,bend_range),fast=fast)
+# 			ptoc()
+# 		else:
+# 			transceiver.send(midi_pitch_bend_from_semitones(remainder,-bend_range,bend_range),fast=fast)
+# 	else:
+# 		if note is not None:
+# 			transceiver.send(midi_note_off(note),fast=fast)
+# 			# transceiver.send(alloff,fast=fast)
+# 			ptoc()
+# 			note=None

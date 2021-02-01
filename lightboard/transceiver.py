@@ -30,7 +30,7 @@ nrf = RF24(spi, csn, ce)
 # usually run with nRF24L01 transceivers in close proximity
 nrf.pa_level = 0
 
-nrf.data_rate=2#1:1mbps, 2:2mbps
+nrf.data_rate=1#1:1mbps, 2:2mbps
 
 # addresses needs to be in a buffer protocol object (bytearray)
 address = [b"1Node", b"2Node"]
@@ -46,12 +46,20 @@ nrf.open_tx_pipe(address[radio_number])  # always uses pipe 0
 # set RX address of TX node into an RX pipe
 nrf.open_rx_pipe(1, address[not radio_number])  # using pipe 1
 
-def send(data:bytes,timeout=.1):
-	start_time=seconds()
-	while not nrf.send(data):
-		if seconds()-start_time>timeout:
-			return False
-	return True
+def send(data:bytes,fast=True):
+	assert isinstance(data,bytes) or isinstance(data,bytearray),'transceiver.send(data): data must be byte or bytearray but got '+str(type(data))
+	#When fast==False, can take .02sec
+	#When fast==True, can take .007sec
+	if not data:
+		return
+	while True:
+		chunk=data[:32]
+		assert 1<=len(chunk)<=32
+		result=nrf.send(chunk,ask_no_ack=fast)
+		if len(data)<=32:
+			break
+		data=data[32:]
+	return
 
 
 # def master():  # count = 5 will only transmit 5 packets

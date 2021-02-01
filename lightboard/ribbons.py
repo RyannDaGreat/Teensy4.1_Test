@@ -138,24 +138,29 @@ class Ribbon:
 		self.previous_gate=reading.gate
 		return reading
 
-	def processed_single_touch_reading(self,blink=True):
+	def processed_single_touch_reading(self,blink=False):
 		# if not self.is_calibrated: #Unnessecary CPU time...its cheap but so unimportant...
 			# print("Ribbon.processed_single_touch_reading: Warning: This ribbon is not calibrated!")
 		reading=ProcessedSingleTouchReading(self,blink=blink)
 		self.previous_gate=reading.gate
 		return reading
 
-	def processed_cheap_single_touch_reading(self,blink=True):
+	def processed_cheap_single_touch_reading(self,blink=False):
 		reading=ProcessedCheapSingleTouchReading(self,blink=blink)
 		self.previous_gate=reading.gate
 		return reading
 
-	def processed_dual_touch_reading(self,blink=True):
+	def processed_dual_touch_reading(self,blink=False):
 		reading=ProcessedDualTouchReading(self,blink=blink)
 		self.previous_gate=reading.gate
 		return reading
 	
 	def run_calibration(self,samples_per_pixel=25):
+		def ask_to_try_again():
+			if widgets.input_yes_no("Would you like to try calibrating again?"):
+				self.run_calibration(samples_per_pixel)
+
+
 		import lightboard.display as display
 		import lightboard.neopixels as neopixels
 		import lightboard.buttons as buttons
@@ -194,6 +199,7 @@ class Ribbon:
 
 			if buttons.metal_button.value:
 				if widgets.input_yes_no("Do you want to cancel calibration?\n(All progress will be lost)"):
+					ask_to_try_again()
 					return
 
 
@@ -213,6 +219,7 @@ class Ribbon:
 				buttons.green_button_3.light=num_pixels_calibrated>=2
 				if buttons.metal_button.value:
 					if widgets.input_yes_no("Do you want to cancel calibration?\n(All progress will be lost)"):
+						ask_to_try_again()
 						return
 				if button_press_skip.value:
 					break
@@ -317,10 +324,13 @@ class Ribbon:
 			self.single_touch_to_neopixel_calibration      .save_to_file()
 			self.cheap_single_touch_to_neopixel_calibration.save_to_file()
 			display.set_text("Saved calibrations for ribbon "+self.name+"!")
+			time.sleep(2)
 		else:
 			display.set_text("Cancelled. No calibrations were saved.")
+			time.sleep(2)
+			ask_to_try_again()
+			return
 
-		time.sleep(2)
 
 class NoiseFilter:
 	#This is a LinearModule
@@ -437,7 +447,7 @@ class ProcessedDualTouchReading:
 	TWO_TOUCH_THRESHOLD=2#A distance, measured in neopixel widths, that the dual readings must be apart from each other to register as 
 	TWO_TOUCH_THRESHOLD_SLACK=.05 #A bit of hysterisis used here...like a tether. Basically, to prevent flickering on the bonudary, to switch between two touch and one touch you must move this much distance.
 
-	def __init__(self,ribbon,blink=True):
+	def __init__(self,ribbon,blink=False):
 		#If self.gate is False, your code shouldn't try to check for a .bot, .top, or .middle value - as it was never measured
 		#If your fingers are pressing the ribbon in two different places, after calibration the 'top' value should be above the 'bot' value
 		#	In the event that the hardware of the z
@@ -504,7 +514,7 @@ class ProcessedDualTouchReading:
 				self.mid=mid
 
 class ProcessedSingleTouchReading:
-	def __init__(self,ribbon,blink=True):
+	def __init__(self,ribbon,blink=False):
 		if ribbon.previous_gate:
 			#If it was previously pressed, don't check the gate with the expensive reading...
 			with neopixels.TemporarilyTurnedOff() if blink else EmptyContext():
@@ -524,7 +534,7 @@ class ProcessedSingleTouchReading:
 			self.value=ribbon.single_touch_to_neopixel_calibration(self.raw_value)
 
 class ProcessedCheapSingleTouchReading:
-	def __init__(self,ribbon,blink=True):
+	def __init__(self,ribbon,blink=False):
 		with neopixels.TemporarilyTurnedOff() if blink else EmptyContext():
 			if not ribbon.previous_gate:
 				ribbon.cheap_single_touch_reading()#Sometimes it spikes on the first value for some reason...idk why

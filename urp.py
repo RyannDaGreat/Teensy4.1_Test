@@ -54,11 +54,30 @@ def midi_note_off(note:int,vel:int=127,chan:int=0):
 	assert 0<=chan<16
 	return bytes([0x80+chan,note,vel])
 
+def midi_all_notes_off():
+	return bytes([123,0])
+
+def midi_all_sound_off():
+	return bytes([121,0])
+
+def midi_volume(vol:int):
+	assert 0<=vol<256
+	return bytes([3,vol])
+
 def midi_note_on(note:int,vel:int=127,chan:int=0):
 	assert 0<=note<128
 	assert 0<=vel <128
 	assert 0<=chan<16
 	return bytes([0x90+chan,note,vel])
+
+def midi_pitch_bend(coarse:int,fine:int):
+	return bytes([224,coarse,fine])
+
+def midi_pitch_bend_from_semitones(semitones,lower=-2,upper=2):
+	value=(semitones-lower)/(upper-lower)
+	coarse=int(value*128)
+	fine=int(value*128**2)%128
+	return midi_pitch_bend(clamp(fine,0,255),clamp(coarse,0,255))
 
 def shuffle(array)->None:
 	#Mutates an input list such that it's shuffled
