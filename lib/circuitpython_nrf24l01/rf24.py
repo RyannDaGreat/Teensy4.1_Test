@@ -54,63 +54,97 @@ class RF24:
     """A driver class for the nRF24L01(+) transceiver radios."""
 
     def __init__(self, spi, csn, ce_pin, spi_frequency=10000000):
+        print("A")
         self._spi = SPIDevice(
             spi, chip_select=csn, baudrate=spi_frequency, extra_clocks=8
         )
         self.ce_pin = ce_pin
+        print("B")
         self.ce_pin.switch_to_output(value=False)  # pre-empt standby-I mode
+        print("C")
         self._status = 0  # status byte returned on all SPI transactions
         # pre-configure the CONFIGURE register:
         #   0x0E = IRQs are all enabled, CRC is enabled with 2 bytes, and
         #          power up in TX mode
         self._config = 0x0E
+        print("D")
         self._reg_write(CONFIGURE, self._config)
         if self._reg_read(CONFIGURE) & 3 != 2:
             raise RuntimeError("nRF24L01 Hardware not responding")
+        print("E")
         # init shadow copy of RX addresses for all pipes for context manager
         self._pipes = [bytearray(5), bytearray(5), 0xC3, 0xC4, 0xC5, 0xC6]
+        print("F")
         # _open_pipes attribute reflects only RX state on each pipe
         self._open_pipes = 0  # 0 = all pipes closed
+        print("G")
         for i in range(6):  # capture RX addresses from registers
+            print("H")
             if i < 2:
+                print("I")
                 self._pipes[i] = self._reg_read_bytes(RX_ADDR_P0 + i)
+                print("J")
             else:
+                print("K")
                 self._pipes[i] = self._reg_read(RX_ADDR_P0 + i)
+                print("L")
         # test is nRF24L01 is a plus variant using a command specific to
+        print("M")
         # non-plus variants
         self._is_plus_variant = False
+        print("N")
         b4_toggle = self._reg_read(TX_FEATURE)
+        print("O")
         # derelict ACTIVATE command toggles bits in the TX_FEATURE register
         self._reg_write(0x50, 0x73)
+        print("P")
         after_toggle = self._reg_read(TX_FEATURE)
+        print("Q")
         if b4_toggle == after_toggle:
+            print("R")
             self._is_plus_variant = True
+            print("S")
         if not after_toggle:  # if features are disabled
+            print("T")
             self._reg_write(0x50, 0x73)  # ensure they're enabled
+            print("U")
         # init shadow copy of last RX_ADDR_P0 written to pipe 0 needed as
         # open_tx_pipe() appropriates pipe 0 for ACK packet
+        print("V")
         self._pipe0_read_addr = None
+        print("W")
         # shadow copy of the TX_ADDRESS
         self._tx_address = self._reg_read_bytes(TX_ADDRESS)
+        print("X")
         # pre-configure the SETUP_RETR register
         self._retry_setup = 0x53  # ard = 1500; arc = 3
+        print("Y")
         # pre-configure the RF_SETUP register
         self._rf_setup = 0x07  # 1 Mbps data_rate, and 0 dbm pa_level
+        print("Z")
         # pre-configure dynamic_payloads & auto_ack
         self._dyn_pl = 0x3F  # 0x3F = enable dynamic_payloads on all pipes
+        print("NOW")
         self._aa = 0x3F  # 0x3F = enable auto_ack on all pipes
+        print("I")
         # pre-configure features for TX operations:
         #   5 = enable dynamic_payloads, disable custom ack payloads, &
         #       allow ask_no_ack command
+        print("KNOW")
         self._features = 5
         self._channel = 76  # 2.476 GHz
         self._addr_len = 5  # 5-byte long addresses
         self._pl_len = [32] * 6  # 32-byte static payloads for all pipes
 
+        print("MY")
         with self:  # dumps internal attributes to all registers
+            print("ABC")
             self.flush_rx()
+            print("NEXT")
             self.flush_tx()
+            print("TIME")
             self.clear_status_flags()
+            print("WONT")
 
     def __enter__(self):
         self.ce_pin.value = False
@@ -342,8 +376,11 @@ class RF24:
 
     def clear_status_flags(self, data_recv=True, data_sent=True, data_fail=True):
         """This clears the interrupt flags in the status register."""
+        print("YOU")
         config = bool(data_recv) << 6 | bool(data_sent) << 5 | bool(data_fail) << 4
+        print("SING")
         self._reg_write(7, config)
+        print("WITH")
 
     def interrupt_config(self, data_recv=True, data_sent=True, data_fail=True):
         """Sets the configuration of the nRF24L01's IRQ pin. (write-only)"""

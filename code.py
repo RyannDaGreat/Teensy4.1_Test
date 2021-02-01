@@ -24,7 +24,7 @@
 
 # from linear_modules import *
 
-import lightboard.transceiver as transceiver
+# import lightboard.transceiver as transceiver
 1/0
 
 from urp import *
