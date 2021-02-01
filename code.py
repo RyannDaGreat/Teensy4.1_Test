@@ -24,6 +24,9 @@
 
 # from linear_modules import *
 
+import lightboard.transceiver as transceiver
+1/0
+
 from urp import *
 import time
 import board
@@ -38,14 +41,12 @@ import storage
 
 import lightboard.ribbons as ribbons
 import lightboard.neopixels as neopixels
-import lightboard.transceiver as transceiver
 
-while True:
-	time.sleep(.5)
-	transceiver.send(midi_note_on())
-	time.sleep(.5)
-	transceiver.send(midi_note_off())
-
+# while True:
+# 	time.sleep(.5)
+# 	transceiver.send(midi_note_on())
+# 	time.sleep(.5)
+# 	transceiver.send(midi_note_off())
 
 old_value=0
 while True:
