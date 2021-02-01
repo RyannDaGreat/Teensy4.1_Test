@@ -13,11 +13,15 @@ class HistogramFitter:
 			self.histogram_freqs={}
 			self._verified=False
 
-	def save_to_file(self,path):
+	def save_to_file(self,path=None):
+		if path is None:
+			path=self.file_path
 		data = self._verified, self.bin_size, self.histogram_sums, self.histogram_freqs
 		object_to_file(data,path)
 
 	def load_from_file(self,path):
+		if path is None:
+			path=self.file_path
 		data=file_to_object(path)
 		self._verified, self.bin_size, self.histogram_sums, self.histogram_freqs = data
 		

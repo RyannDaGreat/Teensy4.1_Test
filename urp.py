@@ -119,4 +119,8 @@ def path_exists(path:str):
 		#OSError: [Errno 2] No such file/directory
 		return False
 
-
+class EmptyContext:
+	def __enter__(self,*args):
+		pass
+	def __exit__(self,*args):
+		pass

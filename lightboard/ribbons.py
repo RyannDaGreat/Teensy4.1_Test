@@ -16,6 +16,7 @@ from analogio import AnalogIn as Internal_AnalogIn
 from tools import *
 import storage
 from linear_modules import *
+import lightboard.neopixels as neopixels
 
 i2c = busio.I2C(board.SCL, board.SDA, frequency=1000000)# Create the I2C bus with a fast frequency
 
@@ -99,6 +100,9 @@ class Ribbon:
 
 	def cheap_single_touch_reading(self):
 		return CheapSingleTouchReading(self)
+
+	def processed_single_touch_reading(self):
+		return ProcessedSingleTouchReading(self)
 
 	def processed_dual_touch_reading(self):
 		return ProcessedDualTouchReading(self)
@@ -248,6 +252,18 @@ class Ribbon:
 				V.clear()
 				tether.value=None
 
+		if input_yes_no("Would you like to save this\ncalibration for ribbon "+self.name+"?"):
+			self.dual_touch_a_to_neopixel_calibration      =dual_a      
+			self.dual_touch_b_to_neopixel_calibration      =dual_b      
+			self.single_touch_to_neopixel_calibration      =single      
+			self.cheap_single_touch_to_neopixel_calibration=cheap_single
+			dual_a      .save_to_file()
+			dual_b      .save_to_file()
+			single      .save_to_file()
+			cheap_single.save_to_file()
+			display.set_text("Saved!")
+		else:
+			display.set_text("Cancelled.")
 
 
 
@@ -349,6 +365,31 @@ class ProcessedDualTouchReading:
 			self.dual_b=ribbon.dual_touch_b_to_neopixel_calibration(dual.raw_b)
 			self.single=(single_before.raw_value+single_after.raw_value)/2
 			self.single=ribbon.cheap_single_touch_to_neopixel_calibration(self.single)
+
+class ProcessedSingleTouchReading:
+	__slots__=['gate']
+	def __init__(self,ribbon,blink=False):
+		if not hasattr(ribbon,'previous_processed_single_touch_reading_gate'):
+			previous_processed_single_touch_reading_gate=False
+		if ribbon.previous_processed_single_touch_reading_gate:
+			#If it was previously pressed, don't check the gate with the expensive reading...
+			with neopixels.TemporarilyTurnedOff() if blink else EmptyContext():
+				single_touch_reading=ribbon.single_touch_reading()
+			self.gate=single_touch_reading.gate
+		else:
+			cheap_single_touch_reading=ribbon.cheap_single_touch_reading()
+			if cheap_single_touch_reading.gate():
+				with neopixels.TemporarilyTurnedOff() if blink else EmptyContext():
+					single_touch_reading=ribbon.single_touch_reading()
+				self.gate=single_touch_reading.gate
+			else:
+				self.gate=False
+		ribbon.previous_processed_single_touch_reading_gate=self.gate
+
+		if self.gate:
+			self.raw_value=single_touch_reading.raw_value
+			self.value=ribbon.single_touch_to_neopixel_calibration(self.raw_value)
+
 
 
 
