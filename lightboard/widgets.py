@@ -1,6 +1,6 @@
 import lightboard.buttons as buttons
-import lightboard.display as display
 def input_yes_no(prompt):
+	import lightboard.display as display
 	with buttons.TemporaryGreenButtonLights(1,0,0,0):
 		with buttons.TemporaryMetalButtonLights(1,0,0):
 			with display.TemporarySetText(prompt+'\n(Button 1 -> Yes, Metal Button -> No)'):

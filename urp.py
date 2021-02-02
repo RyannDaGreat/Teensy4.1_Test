@@ -4,8 +4,8 @@
 read_only=True
 import lightboard.battery
 if lightboard.battery.is_connected():
-	import lightboard.display
-	lightboard.display.set_text("BATTERY ON!")
+	# import lightboard.display
+	# lightboard.display.set_text("BATTERY ON!")
 	try:
 		#Try to mitigate errors when saving files
 		#		open('file.txt','wb')
@@ -14,7 +14,7 @@ if lightboard.battery.is_connected():
 		import storage
 		storage.remount('/', readonly=False)
 		read_only=False
-		lightboard.display.set_text("Writeable!")
+		# lightboard.display.set_text("Writeable!")
 	except RuntimeError as error:
 		#When plugged into USB, this doesn't work - and there's no way to write to the filesystem :\
 		#SD cards don't work in the current circuitpython version...
@@ -176,4 +176,24 @@ def std(l):
 	u=mean(l)
 	return mean((x-u)**2 for x in l)**.5
 
+
+def blend(x,y,a):
+	return a*y+(1-a)*x
+	
+def interp(x,*y):
+	x=max(0,min(x,len(y)-1))
+	if x==int(x):
+		return y[int(x)]
+	return blend(y[int(x)],y[int(x)+1],x-int(x))
+
+def note_to_pitch(note,*scale):
+	#Usually scale will have length 12
+	#Scale should be monotonically increasing
+	return interp(note%(len(scale)-1),*scale)+scale[-1]*(note//(len(scale)-1))
+	
+major_scale=[0,2,4,5,7,9,11,12]
+natural_minor_scale=[0,2,3,5,7,8,10,12]
+harmonic_minor_scale=[0,2,3,5,7,8,11,12]
+blues_scale=[0,3,5,6,7,10,12]
+chromatic_scale=[0,1,2,3,4,5,6,7,8,9,10,11,12]
 

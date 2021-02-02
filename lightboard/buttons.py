@@ -176,3 +176,15 @@ class ButtonPressViewer:
 		from time import sleep
 		# sleep(.05)#This is a crude, sloppy way of debouncing the button...it's good enough for now lol
 		return out
+
+green_1_press_viewer=ButtonPressViewer(green_button_1)
+green_2_press_viewer=ButtonPressViewer(green_button_2)
+green_3_press_viewer=ButtonPressViewer(green_button_3)
+green_4_press_viewer=ButtonPressViewer(green_button_4)
+
+green_press_viewers=(green_1_press_viewer,
+                     green_2_press_viewer,
+                     green_3_press_viewer,
+                     green_4_press_viewer)
+
+metal_press_viewer  =ButtonPressViewer(MetalButton)

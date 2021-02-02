@@ -2,6 +2,7 @@ import board
 import neopixel_write
 import digitalio
 from micropython import const
+from urp import *
 
 length=const(125) #Enter the number of neopixels on the lightboard
 
@@ -82,5 +83,70 @@ def display_line(start,end,r=63,g=63,b=63):
 	draw_line(start,end,r,g,b)
 	refresh()
 
+
+
+
+
+################################ HIGH LEVEL FUNCTIONS BELOW #################################
+c=[0,.15,.4,5]
+old_lightwave_new_colors=[
+					(c[3],c[3],c[3]),#5
+					(c[1],c[1],c[2]),
+					(c[3],c[0],c[0]),#3
+					(c[1],c[2],c[1]),
+					(c[3],c[3],c[0]),#4
+					(c[0],c[3],c[0]),#1
+					(c[2],c[1],c[2]),
+					(c[0],c[3],c[3]),#6
+					(c[2],c[2],c[1]),
+					(c[0],c[0],c[3]),#2
+					(c[1],c[2],c[2]),
+					(c[3],c[0],c[3]),#0
+				]
+old_lightwave_old_colors=[
+					(c[3],c[3],c[3]),#5
+					(c[1],c[1],c[2]),
+					(c[3],c[0],c[3]),#3
+					(c[1],c[2],c[1]),
+					(c[3],c[0],c[0]),#4
+					(c[3],c[3],c[0]),#1
+					(c[2],c[1],c[2]),
+					(c[0],c[3],c[0]),#6
+					(c[2],c[2],c[1]),
+					(c[0],c[3],c[3]),#2
+					(c[1],c[2],c[2]),
+					(c[0],c[0],c[3]),#0
+				]
+semitone_colors=old_lightwave_old_colors
+
+def float_color_to_bytes(r,g,b):
+	r=clamp(int(r*256),0,255)
+	g=clamp(int(g*256),0,255)
+	b=clamp(int(b*256),0,255)
+	return bytes([g,r,b])
+
+def draw_pixel_colors(scale=major_scale,pixels_per_note=3,num_pixels=125,brightness=1/20,offset=0,position=None,extra_brightness=3,touch_color=(1,1,1)):
+	import math
+	colors=[semitone_colors[semitone] for semitone in scale[:-1]]
+	# data=b''.join([float_color_to_bytes(r*brightness,g*brightness,b*brightness)*pixels_per_note for r,g,b in colors])
+	right_padding=bytes([0,0,0])*int(math.floor((pixels_per_note-1)/2))
+	left_padding =bytes([0,0,0])*int(math.ceil ((pixels_per_note-1)/2))
+	data=bytearray(b''.join([left_padding+float_color_to_bytes(r*brightness,g*brightness,b*brightness)+right_padding for r,g,b in colors]))
+	if position is not None:
+		start_index=int(position/pixels_per_note)
+		start_index=start_index%(len(scale)-1)
+		r,g,b=colors[start_index]
+		data[3*start_index*pixels_per_note:3*start_index*pixels_per_note+3*pixels_per_note]=float_color_to_bytes(r*brightness*extra_brightness,
+		                                                                   g*brightness*extra_brightness,
+		                                                                   b*brightness*extra_brightness)*pixels_per_note
+	data=data*(num_pixels*3//len(data)+2)
+	data=data[offset:][:3*num_pixels]
+	if position is not None:
+		index=int(position)*3
+		if index<=len(data)-3:
+			#Make the individual pixel we're touching glow
+			data[index:index+3]=float_color_to_bytes(*touch_color)
+	draw(data)
+	return data
 
 
