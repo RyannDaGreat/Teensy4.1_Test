@@ -44,8 +44,12 @@ import lightboard.transceiver as transceiver
 import lightboard.display as display
 import lightboard.buttons as buttons
 
-if widgets.input_yes_no("Would you like to calibrate the ribbon?"):
-	ribbons.ribbon_a.run_calibration()
+if widgets.input_yes_no("Would you like to calibrate any of the ribbons?"):
+	if widgets.input_yes_no("Would you like to calibrate ribbon A?")
+		ribbons.ribbon_a.run_calibration()
+	if widgets.input_yes_no("Would you like to calibrate ribbon B?")
+		ribbons.ribbon_b.run_calibration()
+		
 #TODO: Make this into a function somehow so we can then autotune it
 note=None
 bend_range=48 #Make sure you set your synths in FL studio to accomadate this
@@ -89,6 +93,9 @@ def note_off(note):
 def pitch_bend(semitones):
 	midi_message_state['pitch_bend']=semitones
 
+buttons.set_green_button_lights(0,0,0,0)
+buttons.metal_button.color=(0,0,0)
+
 scales=[major_scale,
         natural_minor_scale,
         harmonic_minor_scale,
@@ -110,7 +117,6 @@ switch_scale_button_index=1
 switch_scale_button_press_viewer=buttons.green_press_viewers[switch_scale_button_index]
 buttons.green_buttons[switch_scale_button_index].light=True
 
-
 current_scale=chromatic_scale
 switch_scale()
 neopixels.draw_pixel_colors(current_scale)
@@ -122,10 +128,17 @@ pixels_per_note=3
 last_midi_time=seconds()
 position=0
 while True:
-	reading=ribbons.ribbon_a.processed_cheap_single_touch_reading()
+
+	reading_a=ribbons.ribbon_a.processed_cheap_single_touch_reading()
+	reading_b=ribbons.ribbon_b.processed_cheap_single_touch_reading()
+	if reading_a.gate:
+		reading=reading_a
+	elif reading_b.gate:
+		reading=reading_b
+
 	if reading.gate:
 		position=reading.value
-		value=note_to_pitch(int(position/pixels_per_note),*current_scale)
+		value=note_to_pitch(int(position/pixels_per_note),*current_scale,)
 		new_note=int(value)
 		remainder=value-new_note
 		if new_note != note:
