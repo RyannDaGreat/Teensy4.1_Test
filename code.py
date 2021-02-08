@@ -35,6 +35,7 @@ from adafruit_ads1x15.analog_in import AnalogIn as ADS1115_AnalogIn
 from digitalio import DigitalInOut, Direction, Pull
 from analogio import AnalogIn as Internal_AnalogIn
 import tools
+import gc
 import storage
 
 import lightboard.ribbons as ribbons
@@ -44,12 +45,31 @@ import lightboard.transceiver as transceiver
 import lightboard.display as display
 import lightboard.buttons as buttons
 
+# def lines(i=0):
+#     w=45
+#     h=12
+#     lines=[('-' if i%2 else '*')*w]*h
+#     lines.insert(i,'i'*w)
+#     return '\n'.join(lines)[:512]
+
+# display.set_text(lines(2))
+
+# while True:
+# 	continue
+# 	tic()
+# 	gc.collect()
+# 	print(gc.mem_free())
+# 	ptoc()
+# 	for i in range(3):
+# 		display.set_text(lines(i))
+
+
 if widgets.input_yes_no("Would you like to calibrate any of the ribbons?"):
-	if widgets.input_yes_no("Would you like to calibrate ribbon A?")
+	if widgets.input_yes_no("Would you like to calibrate ribbon A?"):
 		ribbons.ribbon_a.run_calibration()
-	if widgets.input_yes_no("Would you like to calibrate ribbon B?")
+	if widgets.input_yes_no("Would you like to calibrate ribbon B?"):
 		ribbons.ribbon_b.run_calibration()
-		
+
 #TODO: Make this into a function somehow so we can then autotune it
 note=None
 bend_range=48 #Make sure you set your synths in FL studio to accomadate this
@@ -131,15 +151,19 @@ while True:
 
 	reading_a=ribbons.ribbon_a.processed_cheap_single_touch_reading()
 	reading_b=ribbons.ribbon_b.processed_cheap_single_touch_reading()
-	if reading_a.gate:
-		reading=reading_a
-	elif reading_b.gate:
+	reading=reading_a
+	if reading_b.gate:
 		reading=reading_b
 
 	if reading.gate:
 		position=reading.value
 		value=note_to_pitch(int(position/pixels_per_note),*current_scale,)
-		new_note=int(value)
+		ribbon=reading.ribbon
+		assert isinstance(ribbon,ribbons.Ribbon)
+		if ribbon.name=='b':#CHOO CHOO
+			value+=12#Up a full octave (12 semitones)
+		new_note=value
+		new_note=int(new_note)
 		remainder=value-new_note
 		if new_note != note:
 			if note is None:

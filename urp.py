@@ -139,19 +139,28 @@ def path_exists(path:str):
 		#OSError: [Errno 2] No such file/directory
 		return False
 
-def path_join(path_a:str,path_b:str):
+def _path_join(path_a:str,path_b:str):
 	#Joins paths together.
 	#	EXAMPLES:
 	#		path_join('folder' , 'file') --> 'folder/file'
 	#		path_join('folder/', 'file') --> 'folder/file'
 	#		path_join('folder/','/file') --> 'folder/file'
 	#		path_join('folder ','/file') --> 'folder/file'
-	#TODO: Make this function handle a variable number of arguments.
 	if path_a.endswith('/'):
 		path_a=path_a[:-1]
 	if path_b.startswith('/'):
 		path_b=path_b[1:]
 	return path_a+'/'+path_b
+
+def path_join(*paths):
+	if not len(paths):
+		return ''
+	if len(paths)==1:
+		return paths[0]
+	output=paths[0]
+	for path in paths[1:]:
+		output=_path_join(output,path)
+	return output
 
 class EmptyContext:
 	def __enter__(self,*args):

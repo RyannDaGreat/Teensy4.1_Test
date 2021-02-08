@@ -410,7 +410,7 @@ class CheapSingleTouchReading(SingleTouchReading):
 	#		Even though the raw range is the same for both analog_in and ads_single, we need a larger GATE_THRESHOLD for CheapSingleTouchReading beacause of this flaw in Teensy's ADC.
 	#Uses the Teensy's internal ADC that can read up to 6000x per second
 	#TODO: Implement a variation of the SingleTouchReading class called quick-gate check via the Teensy's internal ADC to save a bit of time and get more accurate results on the dual touch readings (because then we can check both upper and lower both before and after the dual readings which means less spikes)
-	GATE_THRESHOLD=1000
+	GATE_THRESHOLD=1500
 	def read_raw_lower(self):
 		self.prepare_to_read()
 		single_pull.value=False
@@ -451,6 +451,7 @@ class ProcessedDualTouchReading:
 		#If self.gate is False, your code shouldn't try to check for a .bot, .top, or .middle value - as it was never measured
 		#If your fingers are pressing the ribbon in two different places, after calibration the 'top' value should be above the 'bot' value
 		#	In the event that the hardware of the z
+		self.ribbon=ribbon
 
 		previous_gate=ribbon.previous_gate
 
@@ -515,6 +516,7 @@ class ProcessedDualTouchReading:
 
 class ProcessedSingleTouchReading:
 	def __init__(self,ribbon,blink=False):
+		self.ribbon=ribbon
 		if ribbon.previous_gate:
 			#If it was previously pressed, don't check the gate with the expensive reading...
 			with neopixels.TemporarilyTurnedOff() if blink else EmptyContext():
@@ -535,6 +537,7 @@ class ProcessedSingleTouchReading:
 
 class ProcessedCheapSingleTouchReading:
 	def __init__(self,ribbon,blink=False):
+		self.ribbon=ribbon
 		with neopixels.TemporarilyTurnedOff() if blink else EmptyContext():
 			if not ribbon.previous_gate:
 				ribbon.cheap_single_touch_reading()#Sometimes it spikes on the first value for some reason...idk why
