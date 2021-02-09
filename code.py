@@ -45,6 +45,10 @@ import lightboard.transceiver as transceiver
 import lightboard.display as display
 import lightboard.buttons as buttons
 
+while True:
+	print(widgets.input_select(['Hello','World','How','Is','Life'],can_cancel=True,must_confirm=True))
+
+
 # def lines(i=0):
 #     w=45
 #     h=12

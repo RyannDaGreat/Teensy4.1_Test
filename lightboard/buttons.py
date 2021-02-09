@@ -187,4 +187,4 @@ green_press_viewers=(green_1_press_viewer,
                      green_3_press_viewer,
                      green_4_press_viewer)
 
-metal_press_viewer  =ButtonPressViewer(MetalButton)
+metal_press_viewer  =ButtonPressViewer(metal_button)

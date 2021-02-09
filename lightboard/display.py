@@ -1,11 +1,8 @@
-"""
-This test will initialize the display using displayio and draw a solid green
-background, a smaller purple rectangle, and some yellow text.
-"""
 import board
 import terminalio
 import displayio
 from adafruit_display_text import label
+from adafruit_display_shapes.circle import Circle
 from adafruit_st7789 import ST7789
 from micropython import const
 
@@ -22,7 +19,7 @@ spi = board.SPI()
 tft_cs = board.D10
 tft_dc = board.D9
 
-ROTATION=0#0,90,180,270
+ROTATION=90#0,90,180,270
 WIDTH=320
 HEIGHT=240
 if not ROTATION%180:
@@ -30,7 +27,7 @@ if not ROTATION%180:
 
 display_bus = displayio.FourWire(spi, command=tft_dc, chip_select=tft_cs, reset=board.D6)
 
-display = ST7789(display_bus, width=WIDTH, height=HEIGHT, rotation=0)
+display = ST7789(display_bus, width=WIDTH, height=HEIGHT, rotation=ROTATION, auto_refresh=False)
 
 # Make the display context
 text_splash = displayio.Group(max_size=64)
@@ -60,19 +57,60 @@ text_splash.append(text_group)
 
 # text_area2 = label.Label(terminalio.FONT, text="GRUMBO", y=25, color=0xFFFFFF,max_glyphs=1024)#512 is probably good enough for most purposes...but 1024 can fill the entire screen AND more...512 cannot...1024 takes about 4kb more memory than 512.
 # text_splash.append(text_area2)  # Subgroup for text scaling
-menu_splash = displayio.Group(max_size=60)
+# menu_splash = displayio.Group(max_size=60)
+menu_splash = text_splash
+MENU_FONT=terminalio.FONT
+MENU_FONT_WIDTH,MENU_FONT_HEIGHT=MENU_FONT.get_bounding_box()
 MENU_MAX_LINES=30
-MENU_LINE_SPACING=10
-MENU_MAX_CHARS_PER_LINE=60
-MENU_X_ORIGIN=25
+MENU_LINE_SPACING=0 #Empty space between lines, in number of pixels
+MENU_MAX_CHARS_PER_LINE=WIDTH//MENU_FONT_WIDTH+1
+MENU_X_ORIGIN=15
 MENU_Y_ORIGIN=25
 menu_labels=[]
+MENU_CURSOR_X=5
+MENU_CURSOR_Y_OFFSET=-4
+def _menu_calculate_y(index):
+	return MENU_Y_ORIGIN+index*(MENU_FONT_HEIGHT+MENU_LINE_SPACING)
+
 for i in range(MENU_MAX_LINES):
-	menu_label = label.Label(terminalio.FONT,text='Line %i TEST Text ---___---'%i, color=0xFFFFFF,max_glyphs=MENU_MAX_CHARS_PER_LINE,x=MENU_X_ORIGIN, y=MENU_Y_ORIGIN+i*MENU_LINE_SPACING)
+	label_x=MENU_X_ORIGIN
+	label_y=_menu_calculate_y(i)
+	menu_label = label.Label(MENU_FONT,
+	                         text='',
+	                         color=0xFFFFFF,
+	                         max_glyphs=MENU_MAX_CHARS_PER_LINE,
+	                         x=label_x,
+	                         y=label_y)
 	menu_splash.append(menu_label)
 	menu_labels.append(menu_label)
-	display.refresh()
 
+menu_cursor=Circle(MENU_CURSOR_X,label_y,r=4,fill=0xFFFF00)
+menu_splash.append(menu_cursor)
+
+
+def _menu_cursor_is_visible():
+	return not menu_cursor.hidden
+def _menu_cursor_set_visible(value:bool):
+	if value==_menu_cursor_is_visible():
+		return
+	if value:
+		menu_cursor.hidden=False
+	else:
+		menu_cursor.hidden=True
+_menu_cursor_set_visible(False)
+def set_menu_cursor_index(index,refresh=True):
+	if index is None:
+		_menu_cursor_set_visible(False)
+	else:
+		_menu_cursor_set_visible(True)
+		new_y=_menu_calculate_y(index)+MENU_CURSOR_Y_OFFSET
+		if menu_cursor.y!=new_y:
+			menu_cursor.y=new_y
+	if refresh:
+		display.refresh()
+
+def refresh():
+	display.refresh()
 
 display_mode='text' #text, menu
 
@@ -80,14 +118,14 @@ display_mode='text' #text, menu
 def set_text(text:str,refresh=True):
 	global display_mode
 	if display_mode!='text':
-		displayio.release_displays()
-		display.show(text_splash)
+		set_menu([],refresh=False)
 		display_mode='text'
 	text_area.text=text
 	if refresh:
 		display.refresh()
 
 class TemporarySetText:
+	#WARNING: This should not be used until the entire display works...it won't revert back to a menu afterwards so what good is it?
 	def __init__(self,text):
 		self.text=text
 	def __enter__(self):
@@ -117,57 +155,79 @@ class TemporarySetText:
 
 # while True:pass
 
-def set_menu(labels,colors=None,refresh=True):
+def set_menu(labels,index:int=None,colors=None,refresh=True):
+	#labels is list of strs
+	#colors is list of ints
 	assert len(labels)<=MENU_MAX_LINES
 	labels=tuple(labels)
 	if colors is None:
-		colors=tuple(menu_label.color for menu_label in menu_labels)
+		colors=tuple(0xFFFFFF for menu_label in menu_labels)
+	colors=list(colors)
+	while len(colors)<len(menu_labels):
+		colors.append(0xFFFFFF)
 	global display_mode
 	if display_mode!='menu':
-		displayio.release_displays()
-		display.show(menu_splash)
+		# displayio.release_displays()
+		# display.show(menu_splash)
+		text_area.text=''#TODO: Implement set_text with set_menu to make it faster when multiple lines are the same...
 		display_mode='menu'
 	for label in labels:
 		assert isinstance(label,str)
 		assert '\n' not in label,'Menu labels can only be one line. Anything else is too ugly to bear...'
 	for i,label in enumerate(labels+('',)*(len(menu_labels)-len(labels))):
-		print(i,len(menu_labels),len(labels),'CHUNKER')
+		# print(i,len(menu_labels),len(labels),'CHUNKER')
 		color=colors[i]
+		label=label[:MENU_MAX_CHARS_PER_LINE]
 		if menu_labels[i].text!=label:
 			#Only change the ones that need to be changed...
 			menu_labels[i].text=label
 		if menu_labels[i].color!=color:
 			menu_labels[i].color=color
-
+	set_menu_cursor_index(index,refresh=True)
 	if refresh:
 		display.refresh()
 
-display.refresh()
+# while True:
 
-def lines(i=0):
-	w=30
-	h=MENU_MAX_LINES-1
-	lines=[('-' if i%2 else '-')*w]*h
-	lines.insert(i,'i'*w)
-	return '\n'.join(lines)
+	# print(lightboard_select(['Hello','World','How','Is','Life']))
+
+# def lines(i=0):
+# 	w=30
+# 	h=MENU_MAX_LINES-1
+# 	lines=[('-' if i%2 else '-')*w]*h
+# 	lines.insert(i,'i'*w)
+# 	return '\n'.join(lines)
+
+
+# set_menu(('||`,yIg'*10,)*10)
+# # while True:pass
+
+# # while True:
+# # 	for i in range(3):
+# # 		print(i,'CHUMP')
+# # 		set_text(lines(i))
+
 
 
 # while True:
-# 	for i in range(3):
-# 		print(i,'CHUMP')
-# 		set_text(lines(i))
-
-while True:
-	for i in range(MENU_MAX_LINES):
-		print(i)
-		colors=[0xFFFFFF]*MENU_MAX_LINES
-		colors[i]=0xFF00FF
-		set_menu(lines(i).split('\n'),colors)
-		# display.refresh()
+# 	for i in range(MENU_MAX_LINES):
+# 		from time import sleep
+# 		print('mennu',i)
+# 		set_menu_cursor_index(i)
+# 		sleep(1/60)
 
 
-def set_menu_options(selected_index,prompt,options):
-	pass
+# # while True:
+# 	for i in range(MENU_MAX_LINES):
+# 		print(i)
+# 		colors=[0xFFFFFF]*MENU_MAX_LINES
+# 		colors[i]=0xFF00FF
+# 		set_menu(lines(i).split('\n'),colors)
+# 		display.refresh()
+
+
+# def set_menu_options(selected_index,prompt,options):
+# 	pass
 
 
 
