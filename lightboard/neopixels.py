@@ -2,6 +2,7 @@ import board
 import neopixel_write
 import digitalio
 from micropython import const
+from lightboard.config import config
 from urp import *
 
 length=const(125) #Enter the number of neopixels on the lightboard
@@ -125,8 +126,10 @@ def float_color_to_bytes(r,g,b):
 	b=clamp(int(b*256),0,255)
 	return bytes([g,r,b])
 
-def draw_pixel_colors(scale=major_scale,pixels_per_note=3,num_pixels=125,brightness=1/20,offset=0,position=None,extra_brightness=3,touch_color=(1,1,1)):
+def draw_pixel_colors(scale=major_scale,pixels_per_note=3,num_pixels=125,brightness=None,offset=0,position=None,extra_brightness=3,touch_color=(1,1,1)):
 	import math
+	if brightness is None:
+		brightness=config.get_with_default('neopixels brightness')
 	colors=[semitone_colors[semitone] for semitone in scale[:-1]]
 	# data=b''.join([float_color_to_bytes(r*brightness,g*brightness,b*brightness)*pixels_per_note for r,g,b in colors])
 	right_padding=bytes([0,0,0])*int(math.floor((pixels_per_note-1)/2))

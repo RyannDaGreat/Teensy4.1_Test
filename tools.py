@@ -203,7 +203,12 @@ class AddressedConfig:
 		self._data=file_to_object(self.file_path)
 	def clear(self):
 		self.data={}
-			
+
+	def get_with_default(address,default=None):
+		if address not in self and default is not None:
+			self[address]=default
+		return self[address]
+
 	@property
 	def data(self):
 		return self._data

@@ -55,7 +55,7 @@ if 'weeble wobble wooble' not in config:
 
 while True:
 	option=widgets.input_select(
-		['Hello','World','How','Is','Life','CLEAR'],
+		['Hello','World','How','Is','Life','CLEAR']+'asodiuf dsoaijf aosijdoisjdoif siodf  jioio i ioj ijo ijosdijd iojiojsd f sjd'.split(),
 		prompt="Please choose new option\n    Old option: "+repr(config['weeble wobble wooble'])+'\n'+repr(config),
 		can_cancel=True,
 		must_confirm=True)
