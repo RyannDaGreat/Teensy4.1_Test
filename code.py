@@ -55,18 +55,34 @@ if 'weeble wobble wooble' not in config:
 
 while True:
 	option=widgets.input_select(
-		['Hello','World','How','Is','Life','CLEAR']+'asodiuf dsoaijf aosijdoisjdoif siodf  jioio i ioj ijo ijosdijd iojiojsd f sjd'.split(),
+		['Calibrate','Brightness','Play']+'asodiuf dsoaijf aos ij doi sjdo if siodf  jioio i ioj ijo ijosdijd iojiojsd f sjd'.split(),
 		prompt="Please choose new option\n    Old option: "+repr(config['weeble wobble wooble'])+'\n'+repr(config),
-		can_cancel=True,
+		can_cancel=False,
 		must_confirm=True)
-	if option=='CLEAR':
-		display.set_text('Clearing all config')
-		time.sleep(.5)
-		config.clear()
-	else:
-		display.set_text('Set weeble to '+option)
-		time.sleep(.5)
-		config['weeble wobble wooble']=option
+	if option=='Play':
+		break
+	elif option=='Brightness':
+		widgets.edit_config_int('neopixels pixels_per_note')
+	elif option=='Calibrate':
+		if widgets.input_yes_no("Would you like to calibrate ribbon A?"):
+			ribbons.ribbon_a.run_calibration()
+		if widgets.input_yes_no("Would you like to calibrate ribbon B?"):
+			ribbons.ribbon_b.run_calibration()
+
+# while True:
+# 	option=widgets.input_select(
+# 		['Hello','World','How','Is','Life','CLEAR']+'asodiuf dsoaijf aosijdoisjdoif siodf  jioio i ioj ijo ijosdijd iojiojsd f sjd'.split(),
+# 		prompt="Please choose new option\n    Old option: "+repr(config['weeble wobble wooble'])+'\n'+repr(config),
+# 		can_cancel=True,
+# 		must_confirm=True)
+# 	if option=='CLEAR':
+# 		display.set_text('Clearing all config')
+# 		time.sleep(.5)
+# 		config.clear()
+# 	else:
+# 		display.set_text('Set weeble to '+option)
+# 		time.sleep(.5)
+# 		config['weeble wobble wooble']=option
 
 
 # def lines(i=0):
@@ -88,11 +104,6 @@ while True:
 # 		display.set_text(lines(i))
 
 
-if widgets.input_yes_no("Would you like to calibrate any of the ribbons?"):
-	if widgets.input_yes_no("Would you like to calibrate ribbon A?"):
-		ribbons.ribbon_a.run_calibration()
-	if widgets.input_yes_no("Would you like to calibrate ribbon B?"):
-		ribbons.ribbon_b.run_calibration()
 
 #TODO: Make this into a function somehow so we can then autotune it
 note=None

@@ -204,7 +204,7 @@ class AddressedConfig:
 	def clear(self):
 		self.data={}
 
-	def get_with_default(address,default=None):
+	def get_with_default(self,address,default=None):
 		if address not in self and default is not None:
 			self[address]=default
 		return self[address]

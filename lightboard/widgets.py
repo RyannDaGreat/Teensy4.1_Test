@@ -1,4 +1,5 @@
 import lightboard.buttons as buttons
+from lightboard.config import config
 from urp import *
 
 def input_yes_no(prompt):
@@ -90,3 +91,64 @@ def input_select(options,prompt='Please select an option:',can_cancel=False,must
 				display.set_menu(labels=prefix+visible_options,
 				                 index =len(prefix)+index%num_options_per_page,
 				                 colors=colors)
+
+def edit_config_int(address,min_value=None,max_value=None,default=0):
+	#TODO: Create input_int and use that in edit_config_int (refactoring)
+	if address not in config:
+		config[address]=default
+	
+	original_value=config[address]
+	value=original_value
+
+	with buttons.TemporaryGreenButtonLights(1,1,1,0):
+		with buttons.TemporaryMetalButtonLights(1,0,1):
+			def update_display():
+				display.set_menu(labels=['Editing '+address,
+				                         'Int between %i and %i'%(min_value,max_value),
+				                         '    Green 1 -> -1',
+				                         '    Green 2 -> +1',
+				                         '    Green 3 -> Done',
+				                         '    Metal -> Cancel',
+				                         '',
+				                         address+' = '+str(value),
+				                         ],
+				                 colors=[0xFFFFFF,
+				                         0xFFFFFF,
+				                         0x00FF00,
+				                         0x00FF00,
+				                         0x00FF00,
+				                         0xFF00FF,
+				                         ]
+				                )
+			while True:
+				buttons.green_button_1.light=value!=min_value
+				buttons.green_button_1.light=value!=max_value
+				
+				if buttons.green_1_press_viewer.value:
+					value-=1
+					if min_value is not None:
+						value=max(min_value,value)
+
+				if buttons.green_2_press_viewer.value:
+					value+=1
+					if max_value is not None:
+						value=min(max_value,value)
+
+				if buttons.green_3_press_viewer.value:
+					if input_yes_no("Are you sure you want to change\n%s from (old) %i to %i (new)?"%(address,original_value,config[address])):
+						config[address]=value
+						set_text('Confirmed: set %s to %i'%(address,config[address]))
+						return
+
+				if buttons.metal_press_viewer.value:
+					if input_yes_no("Are you sure you want to cancel\n and keep %s as %i?"%(address,original_value)):
+						config[address]=original_value
+						return
+
+				update_display()
+
+
+
+
+
+
