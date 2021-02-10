@@ -24,29 +24,39 @@ spi = board.SPI()  # init spi bus object
 
 # we'll be using the dynamic payload size feature (enabled by default)
 # initialize the nRF24L01 on the spi bus object
-nrf = RF24(spi, csn, ce)
 
-# set the Power Amplifier level to -12 dBm since this test example is
-# usually run with nRF24L01 transceivers in close proximity
-nrf.pa_level = 0
+available=True
+try:
+	nrf = RF24(spi, csn, ce)
+except RuntimeError:
+	#RuntimeError: nRF24L01 Hardware not responding
+	available=False
+	print("WARNING: transceiver is NOT available; the nRF24L01 is not responding")
 
-nrf.data_rate=1#1:1mbps, 2:2mbps
+if available:
+	# set the Power Amplifier level to -12 dBm since this test example is
+	# usually run with nRF24L01 transceivers in close proximity
+	nrf.pa_level = 0
 
-# addresses needs to be in a buffer protocol object (bytearray)
-address = [b"1Node", b"2Node"]
+	nrf.data_rate=1#1:1mbps, 2:2mbps
 
-# to use different addresses on a pair of radios, we need a variable to
-# uniquely identify which address this radio will use to transmit
-# 0 uses address[0] to transmit, 1 uses address[1] to transmit
-radio_number = LIGHTBOARD
+	# addresses needs to be in a buffer protocol object (bytearray)
+	address = [b"1Node", b"2Node"]
 
-# set TX address of RX node into the TX pipe
-nrf.open_tx_pipe(address[radio_number])  # always uses pipe 0
+	# to use different addresses on a pair of radios, we need a variable to
+	# uniquely identify which address this radio will use to transmit
+	# 0 uses address[0] to transmit, 1 uses address[1] to transmit
+	radio_number = LIGHTBOARD
 
-# set RX address of TX node into an RX pipe
-nrf.open_rx_pipe(1, address[not radio_number])  # using pipe 1
+	# set TX address of RX node into the TX pipe
+	nrf.open_tx_pipe(address[radio_number])  # always uses pipe 0
+
+	# set RX address of TX node into an RX pipe
+	nrf.open_rx_pipe(1, address[not radio_number])  # using pipe 1
 
 def send(data:bytes,fast=True):
+	if not available:
+		return #When the NRF24L01 is unplugged, don't crash the script. Just don't send anything.
 	assert isinstance(data,bytes) or isinstance(data,bytearray),'transceiver.send(data): data must be byte or bytearray but got '+str(type(data))
 	#When fast==False, can take .02sec
 	#When fast==True, can take .007sec

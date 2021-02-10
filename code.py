@@ -47,11 +47,11 @@ import lightboard.buttons as buttons
 from lightboard.config import config
 
 
-if 'weeble wobble wooble' not in config:
-	print("WOBBLE")
-	display.set_text("WEEBLE WOBBLE")
-	time.sleep(1)
-	config['weeble wobble wooble']="Wowza"
+# if 'weeble wobble wooble' not in config:
+# 	print("WOBBLE")
+# 	display.set_text("WEEBLE WOBBLE")
+# 	time.sleep(1)
+# 	config['weeble wobble wooble']="Wowza"
 
 while True:
 	option=widgets.input_select(
@@ -62,7 +62,7 @@ while True:
 	if option=='Play':
 		break
 	elif option=='Brightness':
-		widgets.edit_config_int('neopixels pixels_per_note')
+		widgets.edit_config_int('neopixels brightness')
 	elif option=='Calibrate':
 		if widgets.input_yes_no("Would you like to calibrate ribbon A?"):
 			ribbons.ribbon_a.run_calibration()

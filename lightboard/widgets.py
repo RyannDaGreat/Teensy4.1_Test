@@ -93,6 +93,8 @@ def input_select(options,prompt='Please select an option:',can_cancel=False,must
 				                 colors=colors)
 
 def edit_config_int(address,min_value=None,max_value=None,default=0):
+	import lightboard.display as display
+	
 	#TODO: Create input_int and use that in edit_config_int (refactoring)
 	if address not in config:
 		config[address]=default
@@ -103,8 +105,18 @@ def edit_config_int(address,min_value=None,max_value=None,default=0):
 	with buttons.TemporaryGreenButtonLights(1,1,1,0):
 		with buttons.TemporaryMetalButtonLights(1,0,1):
 			def update_display():
+
+				if min_value is not None and max_value is not None:
+					bounds_string='Int between %i and %i'%(min_value,max_value)
+				elif min_value is None and max_value is not None:
+					bounds_string='Int at most %i'%max_value
+				elif max_value is None and min_value is not None:
+					bounds_string='Int at least %i'%min_value
+				elif max_value is None and min_value is None:
+					bounds_string=''
+
 				display.set_menu(labels=['Editing '+address,
-				                         'Int between %i and %i'%(min_value,max_value),
+				                         bounds_string,
 				                         '    Green 1 -> -1',
 				                         '    Green 2 -> +1',
 				                         '    Green 3 -> Done',
@@ -135,9 +147,11 @@ def edit_config_int(address,min_value=None,max_value=None,default=0):
 						value=min(max_value,value)
 
 				if buttons.green_3_press_viewer.value:
-					if input_yes_no("Are you sure you want to change\n%s from (old) %i to %i (new)?"%(address,original_value,config[address])):
+					if input_yes_no("Are you sure you want to change\n'%s' from \n(old) %i to %i (new)?"%(address,original_value,config[address])):
 						config[address]=value
-						set_text('Confirmed: set %s to %i'%(address,config[address]))
+						display.set_text('Confirmed: set %s to %i'%(address,config[address]))
+						from time import sleep
+						sleep(.5)
 						return
 
 				if buttons.metal_press_viewer.value:

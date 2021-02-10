@@ -129,7 +129,7 @@ def float_color_to_bytes(r,g,b):
 def draw_pixel_colors(scale=major_scale,pixels_per_note=None,num_pixels=length,brightness=None,offset=0,position=None,extra_brightness=3,touch_color=(1,1,1)):
 	import math
 	if brightness is None:
-		brightness=config.get_with_default('neopixels brightness',default=1/20)
+		brightness=1/config.get_with_default('neopixels brightness',default=20)
 	if pixels_per_note is None:
 		pixels_per_note=config.get_with_default('neopixels pixels_per_note',default=3)
 
