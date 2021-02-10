@@ -44,9 +44,29 @@ import lightboard.widgets as widgets
 import lightboard.transceiver as transceiver
 import lightboard.display as display
 import lightboard.buttons as buttons
+from lightboard.config import config
+
+
+if 'weeble wobble wooble' not in config:
+	print("WOBBLE")
+	display.set_text("WEEBLE WOBBLE")
+	time.sleep(1)
+	config['weeble wobble wooble']="Wowza"
 
 while True:
-	print(widgets.input_select(['Hello','World','How','Is','Life'],can_cancel=True,must_confirm=True))
+	option=widgets.input_select(
+		['Hello','World','How','Is','Life','CLEAR'],
+		prompt="Please choose new option\n    Old option: "+repr(config['weeble wobble wooble'])+'\n'+repr(config),
+		can_cancel=True,
+		must_confirm=True)
+	if option=='CLEAR':
+		display.set_text('Clearing all config')
+		time.sleep(.5)
+		config.clear()
+	else:
+		display.set_text('Set weeble to '+option)
+		time.sleep(.5)
+		config['weeble wobble wooble']=option
 
 
 # def lines(i=0):

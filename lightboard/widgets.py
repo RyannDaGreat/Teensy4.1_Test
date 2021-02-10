@@ -13,25 +13,26 @@ def input_yes_no(prompt):
 					elif buttons.green_1_press_viewer.value:
 						return True
 
-def input_select(options,prompt='Please select an option:',can_cancel=True,must_confirm=True):
+def input_select(options,prompt='Please select an option:',can_cancel=False,must_confirm=True):
 	import lightboard.buttons as buttons
 	import lightboard.display as display
 
-	prefix=[prompt,'Green: 1,2 -> Up/Down, 3 -> Select']
+	prompt_lines=prompt.split('\n')
+	prefix=prompt_lines+['Green: 1,2 -> Up/Down, 3 -> Select']
 	if can_cancel:
 		prefix+=['Metal: Cancel']
 	prefix+=['']
 	
-	colors=[0x4488FF,0x448888,0x448888]
+	colors=[0x88FF88]*len(prompt_lines)+[0x448888,0x448888]
 
 	index=0
 	with buttons.TemporaryGreenButtonLights(1,1,1,0):
 		with buttons.TemporaryMetalButtonLights(1,0,1) if can_cancel else buttons.TemporaryMetalButtonLights(0,0,0):
 			while True:
 				if buttons.green_1_press_viewer.value:
-					index+=1
-				if buttons.green_2_press_viewer.value:
 					index-=1
+				if buttons.green_2_press_viewer.value:
+					index+=1
 				if buttons.green_3_press_viewer.value:
 					if not must_confirm or input_yes_no("Are you sure you want to select\n    "+repr(options[index])):
 						return options[index]

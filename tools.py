@@ -185,3 +185,126 @@ class NeopixelRibbonVoltageCalibrator:
 
 	def __call__(self):
 		return self.reader()*math.exp(self.fit(sum(neopixel_data)))
+
+class AddressedConfig:
+	def __init__(self,file_path,auto_save=True):
+		self.auto_save=auto_save
+		self.file_path=file_path
+		# self.cursor=AddressCursor(self) #This works in CPython...Idk why it doesn't work in circuitpython...
+		if path_exists(self.file_path):
+			self.load()
+		else:
+			self._data={}
+			self.save()
+			
+	def save(self):
+		object_to_file(self.data,self.file_path)
+	def load(self):
+		self._data=file_to_object(self.file_path)
+	def clear(self):
+		self.data={}
+			
+	@property
+	def data(self):
+		return self._data
+	
+	@data.setter
+	def data(self,value):
+		self._data=value
+		if self.auto_save:
+			self.save()
+		
+	@staticmethod
+	def _as_address(address):
+		#The following four expressions should return the same result:
+		#    self['hello']
+		#    self['hello',]
+		#    self[['hello']]
+		#    self[('hello',)]
+		#Also, the following expressions should return the same result:
+		#    self['hello world wow']
+		#    self['hello','world','wow']
+		#    self['hello world','wow']
+		#    self['hello    world','wow']
+		#    self['hello','world wow']
+		if isinstance(address,list):
+			address=tuple(address)
+		elif not isinstance(address,tuple):
+			address=(address,)
+		address=tuple(map(str,address))
+		address=sum((tuple(key.split()) for key in address),tuple())
+		return address
+		
+	def __getitem__(self,address):
+		address=self._as_address(address)
+		
+		output=self.data
+		for key in address:
+			assert key in output,'Invalid address at %s: %s'%(key,'.'.join(address))#Don't just fail; tell us where on the address it failed.
+			output=output[key]
+		
+		return output
+
+	def __setitem__(self,address,value):
+		address=self._as_address(address)
+		if len(address)==0:
+			#This is an edge case
+			self.data=value
+			return  
+		if len(address)>1:
+			self.burrow(address)
+		self[address[:-1]][address[-1]]=value
+		if self.auto_save:
+			self.save()
+	
+	def __contains__(self,address):
+		address=self._as_address(address)
+		cursor=self.data
+		for key in address:
+			if key not in cursor:
+				return False
+			cursor=cursor[key]
+		return True
+	
+	def burrow(self,address,bulldoze=False):
+		#Attempt to make the entire folder structure for a given address
+		#If not bulldoze, it's not allowed to overwrite anything
+		address=self._as_address(address)
+		
+		history=tuple()
+		cursor=self
+		for key in address:
+			history+=(key,)
+			if key not in cursor:
+				cursor[key]={}
+				cursor=cursor[key]
+			elif isinstance(cursor[key],dict):
+				cursor=cursor[key]
+			else:
+				return #Don't throw an error...just stop here. It's ok.
+				# assert bulldoze,'Cant burrow %s without bulldozing: address %s is a %s'%('.'.join(address),'.'.join(history),str(type(cursor[key])))
+	
+	def __repr__(self):
+		return repr(self.data)
+	
+class AddressCursor:
+	#I don't know why this doesn't work in circuitpython...this works in CPython.
+	#Apparently the CircuitPython object class doesn't implement __setattr__??
+	#Normally we can do cursor.hello={} then cursor.hello.world="!" and then repr(root)=={'hello': {'world': '!'}}
+	def __init__(self,root:AddressedConfig,address=tuple()):
+		object.__setattr__(self,'root',root)
+		object.__setattr__(self,'address',address)
+	def __setattr__(self,key,value):
+		address=object.__getattribute__(self,'address')
+		address+=(key,)
+		object.__getattribute__(self,'root')[address]=value
+	def __getattribute__(self,key):
+		address=object.__getattribute__(self,'address')
+		address+=(key,)
+		root=object.__getattribute__(self,'root')
+		if address not in root:
+			raise KeyError('Invalid address: '+'.'.join(address))
+		if isinstance(root[address],dict):
+			return type(self)(root,address)
+		else:
+			return root[address]

@@ -19,7 +19,7 @@ spi = board.SPI()
 tft_cs = board.D10
 tft_dc = board.D9
 
-ROTATION=90#0,90,180,270
+ROTATION=0#0,90,180,270
 WIDTH=320
 HEIGHT=240
 if not ROTATION%180:
@@ -172,7 +172,7 @@ def set_menu(labels,index:int=None,colors=None,refresh=True):
 		text_area.text=''#TODO: Implement set_text with set_menu to make it faster when multiple lines are the same...
 		display_mode='menu'
 	for label in labels:
-		assert isinstance(label,str)
+		assert isinstance(label,str),'Label should be string but got type '+repr(type(label))
 		assert '\n' not in label,'Menu labels can only be one line. Anything else is too ugly to bear...'
 	for i,label in enumerate(labels+('',)*(len(menu_labels)-len(labels))):
 		# print(i,len(menu_labels),len(labels),'CHUNKER')
