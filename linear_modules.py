@@ -151,5 +151,78 @@ class ReluctantDrop:
 		else:
 			self.value=value
 
+class MovingMinimum:
+	#TODO: Make this more efficient; perhaps use a heap?
+	def __init__(self,length):
+		assert length>0,'Must have a positive length'
+		self.length=length
+		self.values=[]
+	def __call__(self,value):
+		self.values.append(value)
+		self.values=self.values[-self.length:]
+		self.value=min(self.values)
+		return self.value
+	def clear(self):
+		self.values.clear()
+
+class MovingMaximum:
+	#TODO: Make this more efficient; perhaps use a heap?
+	def __init__(self,length):
+		assert length>0,'Must have a positive length'
+		self.length=length
+		self.values=[]
+	def __call__(self,value):
+		self.values.append(value)
+		self.values=self.values[-self.length:]
+		self.value=max(self.values)
+		return self.value
+	def clear(self):
+		self.values.clear()
+
+class MovingRange:
+	#TODO: Make this more efficient; perhaps use only one list (not two idential lists stored separately in MovingMaximmum and MovingMinimum)
+	def __init__(self,length):
+		assert length>0,'Must have a positive length'
+		self.length=length
+		self._moving_maximum=MovingMaximum(length)
+		self._moving_minimum=MovingMinimum(length)
+	def __call__(self,value):
+		lower=self._moving_minimum(value)
+		upper=self._moving_maximum(value)
+		assert upper>=lower,'Internal logical assertion: Cannot have negative range'
+		self.value=upper-lower
+		return self.value
+	def clear(self):
+		self._moving_minimum.clear()
+		self._moving_maximum.clear()
+
+class AntiJump:
+	def __init__(self,threshold,length=2,value=None):
+		#Require the inputs to make only small jumps (where the range across the length is less than the threshold), or else it won't update
+		#A good alternative to a median; it means less latency
+		assert length>0,'Must have a positive length'
+		assert threshold>=0,'Must have a non-negative jump threshold'
+		self.length=length
+		self.value=value
+		self.threshold=threshold
+		self._moving_range=MovingRange(length)
+
+	def __call__(self,value):
+		if self.value is None:
+			self.value=value
+		else:
+			range=self._moving_range(value)
+			assert range>=0,'Internal logical assertion of MovingRange'
+			if range<self.threshold:
+				self.value=value
+		return self.value
+
+	def clear(self):
+		self.value=None
+		self._moving_range.clear()
+
+
+
+
 
 

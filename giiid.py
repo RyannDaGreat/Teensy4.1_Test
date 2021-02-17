@@ -4,7 +4,7 @@ from urp import *
 from linear_modules import *
 import lightboard.display as display
 import lightboard.buttons as buttons
-uart =busio.UART(board.D29, board.D28, baudrate=115200, timeout=1000*(1/115200),receiver_buffer_size=1024) #Make timeout as small as possible without accidently not reading the whole line...
+uart =busio.UART(board.D29, board.D28, baudrate=115200, timeout=1000*(1/115200)) #Make timeout as small as possible without accidently not reading the whole line...
 
 
 uart_stopwatch=Stopwatch()
@@ -27,9 +27,9 @@ class LoadCellCalibration:
 		self.grams_per_raw_value=1
 
 	def get_precise_raw_reading(self,message:str):
-		countdown_time=7
+		countdown_time=20
 		countdown_stopwatch=Stopwatch()
-		sampling_delay=2 #When you press the button, you wobble the lightwave. Wait till the wobbling is finished before sampling the weight.
+		sampling_delay=5 #When you press the button, you wobble the lightwave. Wait till the wobbling is finished before sampling the weight.
 		assert sampling_delay<=countdown_time,'The sampling_delay is part of the countdown_time'
 		raw_total=0
 		raw_count=0
@@ -65,21 +65,15 @@ class LoadCellCalibration:
 					raw_weighed_value=self.get_precise_raw_reading('Please don\'t wobble the lightwave!\nPreparing to calibrate ('+str(grams)+' grams...)\n'+repr(self.load_cell.name))
 					display.set_text('Weighing complete!')
 
-					display.set_menu(['WEIGH then RAW',raw_weighed_value,self.raw_tare_value])
-
-					time.sleep(5)
-
 					self.grams_per_raw_value=grams/(raw_weighed_value-self.raw_tare_value)
 
 					display.set_text('Weighing complete!')
-					movmean=MovingAverage(1)
+					movmean=MovingAverage(30)
 					buttons.green_button_1.light=True
 					while not buttons.green_1_press_viewer.value:
-						tic()
 						value=self(self.load_cell.raw_value)
 						value=movmean(value)
 						display.set_text(str(value))
-						ptoc()
 					buttons.green_button_1.light=False
 
 
@@ -142,7 +136,6 @@ SILENT_ERRORS=True
 last_message=None
 raw_weights=[0]*6
 raw_imu    =[0]*6
-ERRORZ=0
 def refresh():
 	if uart_stopwatch.toc()<UART_INTERVAL:
 		return
@@ -158,10 +151,7 @@ def refresh():
 			assert last_message[0]=='>' and last_message[-1]=='<','Failed ><'
 		except Exception as e:
 			if not SILENT_ERRORS:
-				print("Nano UART Error:",str(e))
-				ERRORZ+=1
-				display.set_text('ERRORZ\n'+str(ERRORZ))
-				buttons.metal_button.red=not buttons.metal_button.red
+				print_error("Nano UART Error:",str(e))
 			return #Eager to give up if something goes wrong, which happens occasionally...don't sweat it when it does, we'll get another message in 1/80 seconds from now...
 		else:
 			try:
@@ -170,19 +160,16 @@ def refresh():
 				new_raw_imu    =list(map(float,split_message[1+6:-1]))#This returns 6 numbers, but honesltly I don't know which number correponds to which (and actually, we don't need to - all that matters is that it contains X,Y,Z for both the gyroscope and the accelerometer)
 				raw_weights=new_raw_weights
 				raw_imu    =new_raw_imu
-				buttons.metal_button.blue=not buttons.metal_button.blue
 
 				for raw_weight,load_cell in zip(raw_weights,load_cells):
 					load_cell.raw_value=raw_weight
-				# print(*load_cells)
+				print(*load_cells)
 				# print([bool(abs(x.raw_value)>10000) for x in load_cells]) 
 			except Exception as e:
 				if not SILENT_ERRORS:
-					display.set_text('ERRORZ\n'+str(ERRORZ))
 					print_error("Nano Parsing Error:",str(e))
 				return
 
-buttons.metal_button.blue=not buttons.metal_button.blue
 
 bot_right.calibration.run_calibration(681)
 

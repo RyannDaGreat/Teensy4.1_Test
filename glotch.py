@@ -4,26 +4,26 @@ from urp import *
 from linear_modules import *
 import lightboard.display as display
 import lightboard.buttons as buttons
-uart =busio.UART(board.D29, board.D28, baudrate=115200, timeout=1000*(1/115200),receiver_buffer_size=1024) #Make timeout as small as possible without accidently not reading the whole line...
+import lightboard.widgets as widgets
+import time
+nano_uart=busio.UART(board.D29, board.D28, baudrate=115200, timeout=1000*(1/115200)) #Make timeout as small as possible without accidently not reading the whole line...
 
 
-uart_stopwatch=Stopwatch()
-UART_INTERVAL=1/80/2 #How often should we poll the Nano? (It should output a message 80 times a second)
+nano_uart_stopwatch=Stopwatch()
+NANO_UART_INTERVAL=1/80/2 #How often should we poll the Nano? (It should output a message 80 times a second)
 
 class LoadCellFilter:
 	def __init__(self):
 		self.soft_tether=SoftTether(10000)
 	def __call__(self,value):
-		# value=self.soft_tether(value)
-		self.value=value
+		value=self.soft_tether(value)
 		return value
 
 class LoadCellCalibration:
 	def __init__(self,load_cell):
 		self.load_cell=load_cell
 
-		#The following two values should be calibrated; they shouldn't actually be 0 and 1 (0 and 1 are just placeholder values here)
-		self.raw_tare_value=0
+		#The following values should be calibrated; they shouldn't actually be 0 and 1 (0 and 1 are just placeholder values here)
 		self.grams_per_raw_value=1
 
 	def get_precise_raw_reading(self,message:str):
@@ -48,6 +48,7 @@ class LoadCellCalibration:
 
 
 	def run_calibration(self,grams):
+		old_grams_per_raw_value=self.grams_per_raw_value
 		#grams represents the weight of the object that we use to calibrate the load cell
 		with display.TemporarySetText('Please take all weight off \nload cell '+repr(self.load_cell.name)+'\nThen press green button 1'):
 			with buttons.TemporaryMetalButtonLights(0,0,0):
@@ -55,7 +56,7 @@ class LoadCellCalibration:
 					while not buttons.green_1_press_viewer.value:pass
 					buttons.green_button_1.light=False
 
-					self.raw_tare_value=self.get_precise_raw_reading('Please don\'t wobble the lightwave!\nPreparing to calibrate (taring...)\n'+repr(self.load_cell.name))
+					raw_tare_value=self.get_precise_raw_reading('Please don\'t wobble the lightwave!\nPreparing to calibrate (taring...)\n'+repr(self.load_cell.name))
 					display.set_text('Taring complete! Please put your\n'+str(grams)+' gram weight on load cell\n'+repr(self.load_cell.name)+'\nThen press the green button')
 
 					buttons.green_button_1.light=True
@@ -63,34 +64,48 @@ class LoadCellCalibration:
 					buttons.green_button_1.light=False
 
 					raw_weighed_value=self.get_precise_raw_reading('Please don\'t wobble the lightwave!\nPreparing to calibrate ('+str(grams)+' grams...)\n'+repr(self.load_cell.name))
+					if raw_weighed_value-raw_tare_value==0:
+						#This happened once...it crashed the lightboard...
+						display.set_text("ERROR: We must abort calibration\nof load cell "+repr(self.load_cell.name)+"\nDivision by 0 error\nraw_weighed_value=raw_tare_value\n%f=%f\nPress metal button to cancel"%(raw_weighed_value,raw_tare_value))
+						buttons.metal_button.color=(1,0,0)
+						while not buttons.metal_button.value:
+							pass
+						return
+
+					self.grams_per_raw_value=grams/(raw_weighed_value-raw_tare_value)
+
 					display.set_text('Weighing complete!')
-
-					display.set_menu(['WEIGH then RAW',raw_weighed_value,self.raw_tare_value])
-
-					time.sleep(5)
-
-					self.grams_per_raw_value=grams/(raw_weighed_value-self.raw_tare_value)
+					time.sleep(.5)
 
 					display.set_text('Weighing complete!')
-					movmean=MovingAverage(1)
+					moving_average=MovingAverage(30)
 					buttons.green_button_1.light=True
 					while not buttons.green_1_press_viewer.value:
+						value=self(self.load_cell.raw_value,raw_tare_value)
+						value=moving_average(value)
 						tic()
-						value=self(self.load_cell.raw_value)
-						value=movmean(value)
-						display.set_text(str(value))
-						ptoc()
+						display.set_text('Now its time to test\n'+repr(self.load_cell.name)+'\n\nTry putting different known weights\non the load cell, and see\nhow accurate it is. When you\nare done, press the green button.\n\nCurrent weight in grams:\n'+str(int(value)))
+						print(value) #I have no idea why, but printing value is apparently critical to making sure that the Nano's values are read properly...this is a complete enigma to me.
+						toc()
 					buttons.green_button_1.light=False
 
+					if widgets.input_yes_no('Are you satisfied with the results?\n(In other words, is it\naccurate enough for you?)'):
+						self.save()
+						display.set_text('Saved calibration for load cell\n'+repr(self.load_cell.name))
+						time.sleep(1)
+						return
+					else:
+						display.set_text('Cancelled calibration for load cell\n'+repr(self.load_cell.name))
+						self.grams_per_raw_value=old_grams_per_raw_value
 
+	def __call__(self,raw_value,tare_value=0):
+		return (raw_value-tare_value)*self.grams_per_raw_value
 
-	def __call__(self,raw_value):
-		return (raw_value-self.raw_tare_value)*self.grams_per_raw_value
-	# def test_calibration(self,raw_tare_value=None):
-	# 	if raw_tare_value is None:
-	# 		raw_tare_value=self.raw_tare_value
-	# 	self.load_cell
+	def save(self):
+		pass
 
+	def load(self):
+		pass
 
 
 
@@ -118,6 +133,11 @@ class LoadCell:
 		self.filter(value)
 
 	@property
+	def raw_filtered_value(self):
+		refresh()
+		return self.filter.value
+
+	@property
 	def value(self):
 		refresh()
 		return self.filter.value
@@ -138,18 +158,16 @@ load_cells=[top_left,top_right,
             bot_left,bot_right]
 
 SILENT_ERRORS=True
-
 last_message=None
 raw_weights=[0]*6
 raw_imu    =[0]*6
-ERRORZ=0
 def refresh():
-	if uart_stopwatch.toc()<UART_INTERVAL:
+	if nano_uart_stopwatch.toc()<NANO_UART_INTERVAL:
 		return
 	global last_message,raw_weights,raw_imu
-	data = uart.readline()
+	data = nano_uart.readline()
 	if data is not None:
-		uart_stopwatch.tic()
+		nano_uart_stopwatch.tic()
 		try:
 			last_message=data.decode().strip()
 			#Should look like:
@@ -158,10 +176,7 @@ def refresh():
 			assert last_message[0]=='>' and last_message[-1]=='<','Failed ><'
 		except Exception as e:
 			if not SILENT_ERRORS:
-				print("Nano UART Error:",str(e))
-				ERRORZ+=1
-				display.set_text('ERRORZ\n'+str(ERRORZ))
-				buttons.metal_button.red=not buttons.metal_button.red
+				print_error("Nano UART Error:",str(e))
 			return #Eager to give up if something goes wrong, which happens occasionally...don't sweat it when it does, we'll get another message in 1/80 seconds from now...
 		else:
 			try:
@@ -170,26 +185,25 @@ def refresh():
 				new_raw_imu    =list(map(float,split_message[1+6:-1]))#This returns 6 numbers, but honesltly I don't know which number correponds to which (and actually, we don't need to - all that matters is that it contains X,Y,Z for both the gyroscope and the accelerometer)
 				raw_weights=new_raw_weights
 				raw_imu    =new_raw_imu
-				buttons.metal_button.blue=not buttons.metal_button.blue
 
 				for raw_weight,load_cell in zip(raw_weights,load_cells):
 					load_cell.raw_value=raw_weight
-				# print(*load_cells)
+				print(*load_cells)
 				# print([bool(abs(x.raw_value)>10000) for x in load_cells]) 
 			except Exception as e:
 				if not SILENT_ERRORS:
-					display.set_text('ERRORZ\n'+str(ERRORZ))
 					print_error("Nano Parsing Error:",str(e))
 				return
 
-buttons.metal_button.blue=not buttons.metal_button.blue
 
 bot_right.calibration.run_calibration(681)
 
 
 while True:
 	tic()
-	refresh()
+	# refresh()
+	print(bot_right.raw_value)
+	# print(*raw_weights)
 	# print(3)
 	# ptoc()
 
@@ -211,7 +225,7 @@ while True:
 while True:
 	# print(i) 
 	try:
-		data = uart.readline()
+		data = nano_uart.readline()
 		if data is not None:
 			data_string = ''.join([chr(b) for b in data])
 			print(data_string, end="")

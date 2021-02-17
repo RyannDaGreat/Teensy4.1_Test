@@ -22,6 +22,8 @@ if lightboard.battery.is_connected():
 		print("Failed to remount:",error)
 		pass
 
+import time
+from time import sleep
 from time import monotonic_ns
 from micropython import const
 
@@ -31,19 +33,46 @@ def millis():
 def seconds():
 	return monotonic_ns() /1000000000
 
+def print_error(*args):
+	print(*args)#This can be disabled if you have to
+	pass
+
+def print_warning(*args):
+	print(*args)#This can be disabled if you have to
+	pass
+
 _toc=0
 def gtoc():
 	return seconds()
-def toc():
-	return gtoc()-_toc
-def tic():
-	global _toc
-	_toc=gtoc()
-def ptoc(*args):
-	print(*(args+('%.7f'%toc(),)))
-def ptoctic(*args):
-	ptoc(*args)
-	tic()
+# def toc():
+# 	return gtoc()-_toc
+# def tic():
+# 	global _toc
+# 	_toc=gtoc()
+# def ptoc(*args):
+# 	print(*(args+('%.7f'%toc(),)))
+# def ptoctic(*args):
+# 	ptoc(*args)
+# 	tic()
+class Stopwatch:
+	def __init__(self):
+		self._toc=gtoc()
+	def toc(self):
+		return gtoc()-self._toc
+	def tic(self):
+		self._toc=gtoc()
+	def ptoc(self,*args):
+		print(*(args+('%.7f'%self.toc(),)))
+	def ptoctic(*args):
+		self.ptoc(*args)
+		self.tic()
+stopwatch=Stopwatch()
+toc=stopwatch.toc
+tic=stopwatch.tic
+ptoc=stopwatch.ptoc
+ptoctic=stopwatch.ptoctic
+
+
 
 def clamp(x,a,b):
 	return min(max(a,b),max(min(a,b),x))

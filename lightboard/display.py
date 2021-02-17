@@ -116,21 +116,27 @@ display_mode='text' #text, menu
 
 #INTERFACE IS SUBJECT TO MAJOR CHANGES SOON
 def set_text(text:str,refresh=True):
-	global display_mode
-	if display_mode!='text':
-		set_menu([],refresh=False)
-		display_mode='text'
-	text_area.text=text
-	if refresh:
-		display.refresh()
+	#TODO: Get rid of 'display_mode' and its distinction between set_text and set_menu. They're unified now.
+	set_menu(text.split('\n'))
+	return
+
+
+	# global display_mode
+	# if display_mode!='text':
+	# 	set_menu([],refresh=False)
+	# 	display_mode='text'
+	# text_area.text=text
+	# if refresh:
+	# 	display.refresh()
 
 class TemporarySetText:
 	#WARNING: This should not be used until the entire display works...it won't revert back to a menu afterwards so what good is it?
-	def __init__(self,text):
+	def __init__(self,text=None):
 		self.text=text
 	def __enter__(self):
 		self.old_text=text_area.text
-		set_text(self.text,refresh=False)
+		if self.text is not None:
+			set_text(self.text,refresh=False)
 	def __exit__(self,*args):
 		set_text(self.old_text,refresh=False)
 
@@ -160,6 +166,7 @@ def set_menu(labels,index:int=None,colors=None,refresh=True):
 	#colors is list of ints
 	assert len(labels)<=MENU_MAX_LINES
 	labels=tuple(labels)
+	labels=tuple(str(x) for x in labels)
 	if colors is None:
 		colors=tuple(0xFFFFFF for menu_label in menu_labels)
 	colors=list(colors)
