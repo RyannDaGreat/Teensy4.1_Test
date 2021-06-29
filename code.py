@@ -73,14 +73,14 @@ class LoadCellCalibration:
 					self.run_test()
 
 	def run_test(self):
-		movmean=MovingAverage(1)
+		movmean=MovingAverage(10)
 		buttons.green_button_1.light=True
 		while not buttons.green_1_press_viewer.value:
-			tic()
+			# tic()
 			value=self(self.load_cell.raw_value)
 			value=movmean(value)
 			display.set_text(str(value))
-			ptoc()
+			# ptoc()
 		buttons.green_button_1.light=False
 
 	def __call__(self,raw_value):
@@ -130,14 +130,27 @@ load_cells=[top_left,top_right,
 
 SILENT_ERRORS=True
 
+def error_blink():
+	colors=[(0,0,1),(0,1,0),(1,0,0)]
+	if buttons.metal_button.color not in colors:
+		buttons.metal_button.color=(0,0,1)
+	else:
+		color=buttons.metal_button.color
+		color=colors[(colors.index(color)+1)%len(colors)]
+		buttons.metal_button.color=color
+
 last_message=None
 raw_weights=[0]*6
 raw_imu    =[0]*6
 def refresh():
+	#TODO: We need an explanation for why using readline twice seems to make everything ok. Maybe we don't need to make a complex stateful parser?
 	if uart_stopwatch.toc()<UART_INTERVAL:
 		return
 	global last_message,raw_weights,raw_imu
-	data = uart.readline()
+	tic()
+	data = uart.readline() #For some reason, calling readline twice avoids parsing errors. 
+	data = uart.readline() #I'm not entirely sure why, but the average time it takes to do it twice is about 0.0004883 seconds, so it seems fine...
+	ptoc()
 	if data is not None:
 		uart_stopwatch.tic()
 		try:
@@ -145,10 +158,11 @@ def refresh():
 			#Should look like:
 			#	last_message=">,-178070,-251194,-64062,185960,50025,-168551,0.6081,-0.5267,8.9232,0.0580,0.0112,0.0548,<"
 			assert last_message.count(',')==6*2-1+2,'Failed Commacount: '+repr(last_message)#'There should be 12 comma-separated values', otherwise we likely misread the NANO's message
-			assert last_message[0]=='>' and last_message[-1]=='<','Failed ><'
+			assert last_message[0]=='>' and last_message[-1]=='<','Failed ><: '+repr(last_message)
 		except Exception as e:
 			if not SILENT_ERRORS:
 				print("Nano UART Error:",str(e))
+			error_blink()
 			return #Eager to give up if something goes wrong, which happens occasionally...don't sweat it when it does, we'll get another message in 1/80 seconds from now...
 		else:
 			try:
@@ -165,6 +179,7 @@ def refresh():
 			except Exception as e:
 				if not SILENT_ERRORS:
 					print_error("Nano Parsing Error:",str(e))
+				error_blink()
 				return
 
 calibration_weight_address='load_cell calibration weight'
@@ -194,24 +209,21 @@ def show_calibration_menu():
 		task=widgets.input_select([calibrate_cell,test_cell,set_weight],prompt='What do you want to do?',can_cancel=True,must_confirm=False,confirm_cancel=False)
 		if task==calibrate_cell or task==test_cell:
 			try:
-				load_cell=widgets.input_select(load_cells,prompt='Calibration:\nSelect a load cell',can_cancel=True,must_confirm=False,confirm_cancel=False)
-				if task==calibrate_cell:
-					load_cell.calibration.run_calibration(get_calibration_weight())
-				else:
-					assert task==test_cell
-					load_cell.calibration.run_test()
+				while True:
+					load_cell=widgets.input_select(load_cells,prompt='Calibration:\nSelect a load cell',can_cancel=True,must_confirm=False,confirm_cancel=False)
+					if task==calibrate_cell:
+						load_cell.calibration.run_calibration(get_calibration_weight())
+					else:
+						assert task==test_cell
+						load_cell.calibration.run_test()
 			except KeyboardInterrupt:
 				pass
 		elif task==set_weight:
 			input_set_calibration_weight()
 		else:
 			assert False,'Internal logical error: invalid task'
-
+bot_right.calibration.run_test()
 show_calibration_menu()
-
-
-bot_right.calibration.run_calibration(681)
-
 
 while True:
 	tic()

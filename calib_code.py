@@ -4,8 +4,11 @@ from urp import *
 from linear_modules import *
 import lightboard.display as display
 import lightboard.buttons as buttons
-uart =busio.UART(board.D29, board.D28, baudrate=115200, timeout=1000*(1/115200),receiver_buffer_size=512) #Make timeout as small as possible without accidently not reading the whole line...
+from lightboard.config import config
 
+calibration_weight_address='load_cell calibration weight'
+
+uart =busio.UART(board.D29, board.D28, baudrate=115200, timeout=1000*(1/115200),receiver_buffer_size=512) #Make timeout as small as possible without accidently not reading the whole line...
 
 uart_stopwatch=Stopwatch()
 UART_INTERVAL=1/80/2 #How often should we poll the Nano? (It should output a message 80 times a second)
@@ -13,6 +16,7 @@ UART_INTERVAL=1/80/2 #How often should we poll the Nano? (It should output a mes
 class LoadCellFilter:
 	def __init__(self):
 		self.soft_tether=SoftTether(10000)
+		self.value=0
 	def __call__(self,value):
 		# value=self.soft_tether(value)
 		self.value=value
@@ -46,7 +50,6 @@ class LoadCellCalibration:
 
 		return raw_total/raw_count
 
-
 	def run_calibration(self,grams):
 		#grams represents the weight of the object that we use to calibrate the load cell
 		with display.TemporarySetText('Please take all weight off \nload cell '+repr(self.load_cell.name)+'\nThen press green button 1'):
@@ -66,35 +69,27 @@ class LoadCellCalibration:
 					display.set_text('Weighing complete!')
 
 					self.grams_per_raw_value=grams/(raw_weighed_value-self.raw_tare_value)
-
 					display.set_text('Weighing complete!')
-					movmean=MovingAverage(1)
-					buttons.green_button_1.light=True
-					while not buttons.green_1_press_viewer.value:
-						tic()
-						value=self(self.load_cell.raw_value)
-						value=movmean(value)
-						display.set_text(str(value))
-						ptoc()
-					buttons.green_button_1.light=False
+					self.run_test()
 
-
+	def run_test(self):
+		movmean=MovingAverage(1)
+		buttons.green_button_1.light=True
+		while not buttons.green_1_press_viewer.value:
+			tic()
+			value=self(self.load_cell.raw_value)
+			value=movmean(value)
+			display.set_text(str(value))
+			ptoc()
+		buttons.green_button_1.light=False
 
 	def __call__(self,raw_value):
 		return (raw_value-self.raw_tare_value)*self.grams_per_raw_value
+
 	# def test_calibration(self,raw_tare_value=None):
 	# 	if raw_tare_value is None:
 	# 		raw_tare_value=self.raw_tare_value
 	# 	self.load_cell
-
-
-
-
-
-
-
-
-
 
 class LoadCell:
 	def __init__(self,name:str):
@@ -119,7 +114,7 @@ class LoadCell:
 		return self.filter.value
 
 	def __repr__(self):
-		return repr(self.value)
+		return self.name
 
 top_left =LoadCell('1: Top Left'    )
 top_right=LoadCell('2: Top Right'   )
@@ -172,6 +167,48 @@ def refresh():
 					print_error("Nano Parsing Error:",str(e))
 				return
 
+calibration_weight_address='load_cell calibration weight'
+
+def get_calibration_weight():
+	if calibration_weight_address not in config:
+		config[calibration_weight_address]=250
+	return config[calibration_weight_address]
+
+def input_set_calibration_weight():
+	import lightboard.widgets as widgets
+	try:
+		config[calibration_weight_address]=widgets.input_integer(get_calibration_weight(),prompt='Enter calibration weight:')
+	except KeyboardInterrupt:
+		pass
+
+def show_calibration_menu():
+	import lightboard.display as display
+	import lightboard.buttons as buttons
+	import lightboard.widgets as widgets
+
+	test_cell     ='Test Load Cell'
+	calibrate_cell='Calibrate Load Cell'
+	set_weight    ='Set Calibration Weight'
+
+	while True:
+		task=widgets.input_select([calibrate_cell,test_cell,set_weight],prompt='What do you want to do?',can_cancel=True,must_confirm=False,confirm_cancel=False)
+		if task==calibrate_cell or task==test_cell:
+			try:
+				load_cell=widgets.input_select(load_cells,prompt='Calibration:\nSelect a load cell',can_cancel=True,must_confirm=False,confirm_cancel=False)
+				if task==calibrate_cell:
+					load_cell.calibration.run_calibration(get_calibration_weight())
+				else:
+					assert task==test_cell
+					load_cell.calibration.run_test()
+			except KeyboardInterrupt:
+				pass
+		elif task==set_weight:
+			input_set_calibration_weight()
+		else:
+			assert False,'Internal logical error: invalid task'
+
+show_calibration_menu()
+
 
 bot_right.calibration.run_calibration(681)
 
@@ -179,426 +216,3 @@ bot_right.calibration.run_calibration(681)
 while True:
 	tic()
 	refresh()
-	# print(3)
-	# ptoc()
-
-
-
-
-
-
-
-
-# 	pass
-
-# class IMU:
-# 	pass
-
-
-
-# for i in range(129384123):
-while True:
-	# print(i) 
-	try:
-		data = uart.readline()
-		if data is not None:
-			data_string = ''.join([chr(b) for b in data])
-			print(data_string, end="")
-
-			# led.value = False
-	except Exception as e:
-		print(e)
-
-# from time import sleep
-# 	print(i)
-# 	sleep(1/60)
-
-
-
-
-
-
-
-
-
-
-
-from urp import *
-import time
-import board
-import busio
-import adafruit_ads1x15.ads1115 as ADS
-from adafruit_ads1x15.ads1x15 import Mode
-from adafruit_ads1x15.analog_in import AnalogIn as ADS1115_AnalogIn
-from digitalio import DigitalInOut, Direction, Pull
-from analogio import AnalogIn as Internal_AnalogIn
-import tools
-import gc
-import storage
-
-import lightboard.ribbons as ribbons
-import lightboard.neopixels as neopixels
-import lightboard.widgets as widgets
-import lightboard.transceiver as transceiver
-import lightboard.display as display
-import lightboard.buttons as buttons
-from lightboard.config import config
-
-
-# if 'weeble wobble wooble' not in config:
-# 	print("WOBBLE")
-# 	display.set_text("WEEBLE WOBBLE")
-# 	time.sleep(1)
-# 	config['weeble wobble wooble']="Wowza"
-
-while True:
-	option=widgets.input_select(
-		['Calibrate','Brightness','Play']+'asodiuf dsoaijf aos ij doi sjdo if siodf  jioio i ioj ijo ijosdijd iojiojsd f sjd'.split(),
-		prompt="Please choose new option\n    Old option: "+repr(config['weeble wobble wooble'])+'\n'+repr(config),
-		can_cancel=False,
-		must_confirm=True)
-	if option=='Play':
-		break
-	elif option=='Brightness':
-		widgets.edit_config_int('neopixels brightness')
-	elif option=='Calibrate':
-		if widgets.input_yes_no("Would you like to calibrate ribbon A?"):
-			ribbons.ribbon_a.run_calibration()
-		if widgets.input_yes_no("Would you like to calibrate ribbon B?"):
-			ribbons.ribbon_b.run_calibration()
-
-# while True:
-# 	option=widgets.input_select(
-# 		['Hello','World','How','Is','Life','CLEAR']+'asodiuf dsoaijf aosijdoisjdoif siodf  jioio i ioj ijo ijosdijd iojiojsd f sjd'.split(),
-# 		prompt="Please choose new option\n    Old option: "+repr(config['weeble wobble wooble'])+'\n'+repr(config),
-# 		can_cancel=True,
-# 		must_confirm=True)
-# 	if option=='CLEAR':
-# 		display.set_text('Clearing all config')
-# 		time.sleep(.5)
-# 		config.clear()
-# 	else:
-# 		display.set_text('Set weeble to '+option)
-# 		time.sleep(.5)
-# 		config['weeble wobble wooble']=option
-
-
-# def lines(i=0):
-#     w=45
-#     h=12
-#     lines=[('-' if i%2 else '*')*w]*h
-#     lines.insert(i,'i'*w)
-#     return '\n'.join(lines)[:512]
-
-# display.set_text(lines(2))
-
-# while True:
-# 	continue
-# 	tic()
-# 	gc.collect()
-# 	print(gc.mem_free())
-# 	ptoc()
-# 	for i in range(3):
-# 		display.set_text(lines(i))
-
-
-
-#TODO: Make this into a function somehow so we can then autotune it
-note=None
-bend_range=48 #Make sure you set your synths in FL studio to accomadate this
-alloff=b''.join([midi_note_off(note) for note in range(128)])
-fast=False
-# midi_note_off=lambda *args:b''
-
-midi_messages_per_second=60
-
-midi_message_state={'notes_off':set()}
-def send_state():
-	global midi_message_state
-	print(midi_message_state)
-	message=b''
-	if 'pitch_bend' in midi_message_state:
-		message+=midi_pitch_bend_from_semitones(midi_message_state['pitch_bend'],-bend_range,bend_range)
-	if 'note_on' in midi_message_state:
-		messapge+=midi_note_on(midi_message_state['note_on'])
-	if 'notes_off' in midi_message_state:
-		message+=b''.join([midi_note_off(note) for note in set(midi_message_state['notes_off'])])
-	transceiver.send(message,fast=fast)
-	midi_message_state={'notes_off':set()}
-
-def note_on(note):
-	if 0<=note<=127:
-		midi_message_state['note_on']=note
-		if note in midi_message_state['notes_off']:
-			midi_message_state['notes_off']-={note}
-
-def gate_off(note):
-	if 0<=note<=127:
-		global midi_message_state
-		midi_message_state={'notes_off':midi_message_state['notes_off']|{note}}
-
-def note_off(note):
-	if 0<=note<=127:
-		midi_message_state['notes_off']|={note}
-		if 'note_on' in midi_message_state and midi_message_state['note_on']==note:
-			del midi_message_state['note_on']
-
-def pitch_bend(semitones):
-	midi_message_state['pitch_bend']=semitones
-
-buttons.set_green_button_lights(0,0,0,0)
-buttons.metal_button.color=(0,0,0)
-
-scales=[major_scale,
-        natural_minor_scale,
-        harmonic_minor_scale,
-        blues_scale,
-        chromatic_scale]
-
-scale_names=['Major Scale',
-             'Natural Minor Scale',
-             'Harmonic Minor Scale',
-             'Blues Scale',
-             'Chromatic Scale']
-
-def switch_scale():
-	global current_scale
-	scale_index=(scales.index(current_scale)+1)%len(scales)
-	current_scale=scales[scale_index]
-	display.set_text("Using:\n"+scale_names[scale_index])
-switch_scale_button_index=1
-switch_scale_button_press_viewer=buttons.green_press_viewers[switch_scale_button_index]
-buttons.green_buttons[switch_scale_button_index].light=True
-
-current_scale=chromatic_scale
-switch_scale()
-neopixels.draw_pixel_colors(current_scale)
-neopixels.refresh()
-
-pixel_offset=12#The number of pixels below the start of the ribbon
-
-pixels_per_note=3
-last_midi_time=seconds()
-position=0
-while True:
-
-	reading_a=ribbons.ribbon_a.processed_cheap_single_touch_reading()
-	reading_b=ribbons.ribbon_b.processed_cheap_single_touch_reading()
-	reading=reading_a
-	if reading_b.gate:
-		reading=reading_b
-
-	if reading.gate:
-		position=reading.value
-		value=note_to_pitch(int(position/pixels_per_note),*current_scale,)
-		ribbon=reading.ribbon
-		assert isinstance(ribbon,ribbons.Ribbon)
-		if ribbon.name=='b':#CHOO CHOO
-			value+=12#Up a full octave (12 semitones)
-		new_note=value
-		new_note=int(new_note)
-		remainder=value-new_note
-		if new_note != note:
-			if note is None:
-				note_on(new_note)
-				pitch_bend(remainder)
-				note=new_note
-			else:
-				if abs(value-note)>bend_range:
-					note_on(new_note)
-					note_off(note)
-					pitch_bend(remainder)
-					note=new_note
-				else:
-					pitch_bend(value-note)
-		else:
-			pitch_bend(remainder)
-	else:
-		if note is not None:
-			gate_off(note)
-			note=None
-	if seconds()-last_midi_time>1/midi_messages_per_second:
-		last_midi_time=seconds()
-		send_state()
-		neopixels.draw_pixel_colors(current_scale,position=position,pixels_per_note=pixels_per_note)
-		neopixels.refresh()
-	if switch_scale_button_press_viewer.value:
-		switch_scale()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# if widgets.input_yes_no("Would you like to calibrate the ribbon?"):
-# 	ribbons.ribbon_a.run_calibration()
-# #TODO: Make this into a function somehow so we can then autotune it
-# note=None
-# bend_range=48 #Make sure you set your synths in FL studio to accomadate this
-# alloff=b''.join([midi_note_off(note) for note in range(128)])
-# fast=False
-# # midi_note_off=lambda *args:b''
-
-# midi_messages_per_second=60
-
-# midi_message_state={'notes_off':set()}
-# sent_notes=set()#dont try to turn off notes we never ended up turning on...
-# def send_state():
-# 	global midi_message_state
-# 	print(midi_message_state)
-# 	message=b''
-# 	if 'pitch_bend' in midi_message_state:
-# 		message+=midi_pitch_bend_from_semitones(midi_message_state['pitch_bend'],-bend_range,bend_range)
-# 	if 'note_on' in midi_message_state:
-# 		message+=midi_note_on(midi_message_state['note_on'])
-# 		sent_notes|={midi_message_state['note_on']}
-# 	if 'notes_off' in midi_message_state:
-# 		message+=b''.join([midi_note_off(note) for note in set(midi_message_state['notes_off'])&sent_notes])
-# 		sent_notes-=midi_message_state['notes_off']
-
-# 	transceiver.send(message,fast=fast)
-# 	midi_message_state={'notes_off':set()}
-
-# def note_on(note):
-# 	midi_message_state['note_on']=note
-# 	if note in midi_message_state['notes_off']:
-# 		midi_message_state['notes_off']-={note}
-
-# def gate_off(note):
-# 	global midi_message_state
-# 	midi_message_state={'notes_off':midi_message_state['notes_off']|{note}}
-
-# def note_off(note):
-# 	midi_message_state['notes_off']|={note}
-# 	if midi_message_state['note_on']==note:
-# 		del midi_message_state['note_on']
-
-# def pitch_bend(semitones):
-# 	midi_message_state['pitch_bend']=semitones
-
-# last_midi_time=seconds()
-# while True:
-# 	reading=ribbons.ribbon_a.processed_cheap_single_touch_reading()
-# 	if reading.gate:
-# 		value=reading.value
-# 		new_note=int(value)
-# 		remainder=value-new_note
-# 		if new_note != note:
-# 			neopixels.display_dot(new_note)
-# 			if note is None:
-# 				note_on(new_note)
-# 				pitch_bend(remainder)
-# 				note=new_note
-# 			else:
-# 				if abs(value-note)>bend_range:
-# 					note_on(new_note)
-# 					note_off(note)
-# 					pitch_bend(remainder)
-# 					note=new_note
-# 				else:
-# 					pitch_bend(value-note)
-# 		else:
-# 			pitch_bend(remainder)
-# 	else:
-# 		if note is not None:
-# 			gate_off(note)
-# 			note=None
-# 	if seconds()-last_midi_time>1/midi_messages_per_second:
-# 		last_midi_time=seconds()
-# 		send_state()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# if widgets.input_yes_no("Would you like to calibrate the ribbon?"):
-# 	ribbons.ribbon_a.run_calibration()
-
-# #TODO: Make this into a function somehow so we can then autotune it
-# note=None
-# bend_range=48 #Make sure you set your synths in FL studio to accomadate this
-# alloff=b''.join([midi_note_off(note) for note in range(128)])
-# # midi_note_off=lambda *args:b''
-# while True:
-# 	tic()
-# 	reading=ribbons.ribbon_a.processed_cheap_single_touch_reading()
-# 	if reading.gate:
-# 		value=reading.value
-# 		new_note=int(value)
-# 		remainder=value-new_note
-# 		if new_note != note:
-# 			neopixels.display_dot(new_note)
-# 			if note is None:
-# 				transceiver.send(midi_note_on(new_note)+midi_pitch_bend_from_semitones(remainder,-bend_range,bend_range))
-# 				note=new_note
-# 			else:
-# 				if abs(value-note)>bend_range:
-# 					transceiver.send(midi_note_on(new_note)\
-# 						+midi_note_off(note)
-# 						+midi_pitch_bend_from_semitones(remainder,-bend_range,bend_range))
-# 					note=new_note
-# 				else:
-# 					transceiver.send(midi_pitch_bend_from_semitones(value-note,-bend_range,bend_range))
-# 			ptoc()
-# 		else:
-# 			transceiver.send(midi_pitch_bend_from_semitones(remainder,-bend_range,bend_range))
-# 	else:
-# 		if note is not None:
-# 			transceiver.send(midi_note_off(note))
-# 			# transceiver.send(alloff)
-# 			ptoc()
-# 			note=None
-
-
-
-
-
-# while True:
-# 	tic()
-# 	reading=ribbons.ribbon_a.processed_cheap_single_touch_reading()
-# 	if reading.gate:
-# 		value=reading.value
-# 		new_note=int(value)
-# 		remainder=value-new_note
-# 		if new_note != note:
-# 			neopixels.display_dot(new_note)
-# 			if note is None:
-# 				transceiver.send(midi_note_on(new_note)+midi_pitch_bend_from_semitones(remainder,-bend_range,bend_range),fast=fast)
-# 				note=new_note
-# 			else:
-# 				if abs(value-note)>bend_range:
-# 					transceiver.send(midi_note_on(new_note)+
-# 						+midi_note_off(note)
-# 						+midi_pitch_bend_from_semitones(remainder,-bend_range,bend_range),fast=fast)
-# 					note=new_note
-# 				else:
-# 					transceiver.send(midi_pitch_bend_from_semitones(value-note,-bend_range,bend_range),fast=fast)
-# 			ptoc()
-# 		else:
-# 			transceiver.send(midi_pitch_bend_from_semitones(remainder,-bend_range,bend_range),fast=fast)
-# 	else:
-# 		if note is not None:
-# 			transceiver.send(midi_note_off(note),fast=fast)
-# 			# transceiver.send(alloff,fast=fast)
-# 			ptoc()
-# 			note=None
