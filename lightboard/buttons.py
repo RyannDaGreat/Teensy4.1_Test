@@ -1,6 +1,7 @@
 import board
 import digitalio as dio
 
+#b1l is button_1_light etc
 b1l = dio.DigitalInOut(board.D14)
 b2l = dio.DigitalInOut(board.D15)
 b3l = dio.DigitalInOut(board.D22)
@@ -17,6 +18,7 @@ b3l.switch_to_output()
 b2l.switch_to_output()
 b1l.switch_to_output()
 
+#b10 is button_1_out etc
 b1o = dio.DigitalInOut(board.D39)
 b2o = dio.DigitalInOut(board.D40)
 b3o = dio.DigitalInOut(board.D41)
@@ -124,11 +126,11 @@ def get_green_button_lights():
 class TemporaryGreenButtonLights:
 	#Meant to be used with the 'with' keyword
 	#Temporarily sets the green buttons' lights 
-	def __init__(self,l1=False,l2=False,l3=False,l4=False):
-		self.l1=l1
-		self.l2=l2
-		self.l3=l3
-		self.l4=l4
+	def __init__(self,l1=None,l2=None,l3=None,l4=None):
+		self.l1=green_button_1.value if l1 is None else l1
+		self.l2=green_button_2.value if l2 is None else l2
+		self.l3=green_button_3.value if l3 is None else l3
+		self.l4=green_button_4.value if l4 is None else l4
 	def __enter__(self,*args):
 		self.old_lights=get_green_button_lights()
 		set_green_button_lights(self.l1,self.l2,self.l3,self.l4)
@@ -138,16 +140,15 @@ class TemporaryGreenButtonLights:
 class TemporaryMetalButtonLights:
 	#Meant to be used with the 'with' keyword
 	#Temporarily sets the green metal button's rgb lights 
-	def __init__(self,r,g,b):
-		self.r=r
-		self.g=g
-		self.b=b
+	def __init__(self,r=None,g=None,b=None):
+		self.r=metal_button.red   if r is None else r
+		self.g=metal_button.green if g is None else g
+		self.b=metal_button.blue  if b is None else b
 	def __enter__(self,*args):
 		self.old_metal_color=metal_button.color
 		metal_button.color=(self.r,self.g,self.b)
 	def __exit__(self,*args):
 		metal_button.color=self.old_metal_color
-
 
 metal_button=MetalButton(bmo,bmr,bmg,bmb)
 

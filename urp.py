@@ -214,7 +214,6 @@ def std(l):
 	u=mean(l)
 	return mean((x-u)**2 for x in l)**.5
 
-
 def blend(x,y,a):
 	return a*y+(1-a)*x
 	
@@ -224,10 +223,28 @@ def interp(x,*y):
 		return y[int(x)]
 	return blend(y[int(x)],y[int(x)+1],x-int(x))
 
+def sign(number)->int:
+	return 1 if number>0 else -1 if number<0 else 0
+
 def note_to_pitch(note,*scale):
 	#Usually scale will have length 12
 	#Scale should be monotonically increasing
 	return interp(note%(len(scale)-1),*scale)+scale[-1]*(note//(len(scale)-1))
+
+def number_to_digits(number:int,num_digits:int)->list:
+	#EXAMPLE:
+	#     >>> base_ten(129,10)
+	#    ans = [0, 0, 0, 0, 0, 0, 0, 1, 2, 9]
+	assert isinstance(number,int),'base_ten only accepts integers'
+	assert number>=0             ,'base_ten only accepts non-negative integers'
+	return [number//(10**(num_digits-i-1))%10 for i in range(num_digits)]
+
+def digits_to_number(digits:list):
+	#EXAMPLE:
+	#    >>> digits_to_number([1,2,3])
+	#    ans = 123
+	return sum(digit*10**i for i,digit in enumerate(reversed(digits)))
+
 	
 major_scale=[0,2,4,5,7,9,11,12]
 natural_minor_scale=[0,2,3,5,7,8,10,12]
