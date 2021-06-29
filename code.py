@@ -77,7 +77,7 @@ class LoadCellCalibration:
 		movmean=MovingAverage(10)
 		buttons.green_button_1.light=True
 		while not buttons.green_1_press_viewer.value:
-			# tic()
+			tic()
 			value=self(self.load_cell.raw_value)
 			value=movmean(value)
 			display.set_text(str(value))
@@ -86,11 +86,6 @@ class LoadCellCalibration:
 
 	def __call__(self,raw_value):
 		return (raw_value-self.raw_tare_value)*self.grams_per_raw_value
-
-	# def test_calibration(self,raw_tare_value=None):
-	# 	if raw_tare_value is None:
-	# 		raw_tare_value=self.raw_tare_value
-	# 	self.load_cell
 
 class LoadCell:
 	def __init__(self,name:str):
@@ -151,6 +146,9 @@ def refresh():
 	# tic()
 	data = uart.readline() #For some reason, calling readline twice avoids parsing errors. 
 	data = uart.readline() #I'm not entirely sure why, but the average time it takes to do it twice is about 0.0004883 seconds, so it seems fine...
+	# data = uart.readline() #I'm not entirely sure why, but the average time it takes to do it twice is about 0.0004883 seconds, so it seems fine...
+	# data = uart.readline() #I'm not entirely sure why, but the average time it takes to do it twice is about 0.0004883 seconds, so it seems fine...
+	# data = uart.readline() #I'm not entirely sure why, but the average time it takes to do it twice is about 0.0004883 seconds, so it seems fine...
 	# ptoc()
 	if data is not None:
 		uart_stopwatch.tic()
@@ -163,7 +161,7 @@ def refresh():
 		except Exception as e:
 			if not SILENT_ERRORS:
 				print("Nano UART Error:",str(e))
-			display.set_text(str(len(data))+'\n'+str(e))
+			display.set_text('+++++++++++++\n\n\n'+str(len(data))+'\n'+str(e))
 			error_blink()
 			return #Eager to give up if something goes wrong, which happens occasionally...don't sweat it when it does, we'll get another message in 1/80 seconds from now...
 		else:
@@ -184,6 +182,9 @@ def refresh():
 				display.set_text(str(len(data))+'\nParse\n'+str(e))
 				error_blink()
 				return
+	elif not data:
+		error_blink()
+		display.set_text("XXXXXXXX")
 
 calibration_weight_address='load_cell calibration weight'
 

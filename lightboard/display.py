@@ -30,7 +30,7 @@ display_bus = displayio.FourWire(spi, command=tft_dc, chip_select=tft_cs, reset=
 display = ST7789(display_bus, width=WIDTH, height=HEIGHT, rotation=ROTATION, auto_refresh=False)
 
 # Make the display context
-text_splash = displayio.Group(max_size=64)
+text_splash = displayio.Group(max_size=64,scale=1)
 display.show(text_splash)
 
 color_bitmap = displayio.Bitmap(WIDTH, HEIGHT, 1)
