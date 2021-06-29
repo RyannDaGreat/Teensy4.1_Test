@@ -223,6 +223,16 @@ def interp(x,*y):
 		return y[int(x)]
 	return blend(y[int(x)],y[int(x)+1],x-int(x))
 
+def rjust(string:str,length:int,char:str=' ')->str:
+	if len(string)<length:
+		string=string+char*(length-len(string))
+	return string
+
+def ljust(string:str,length:int,char:str=' ')->str:
+	if len(string)<length:
+		string=char*(length-len(string))+string
+	return string
+
 def sign(number)->int:
 	return 1 if number>0 else -1 if number<0 else 0
 
