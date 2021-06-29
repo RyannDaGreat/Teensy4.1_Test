@@ -10,9 +10,10 @@ calibration_weight_address='load_cell calibration weight'
 
 uart =busio.UART(board.D29, board.D28, baudrate=115200, timeout=1000*(1/115200),receiver_buffer_size=512) #Make timeout as small as possible without accidently not reading the whole line...
 
+
 uart_stopwatch=Stopwatch()
 UART_INTERVAL=1/80/2 #How often should we poll the Nano? (It should output a message 80 times a second)
-
+print=lambda *x:0
 class LoadCellFilter:
 	def __init__(self):
 		self.soft_tether=SoftTether(10000)
@@ -147,10 +148,10 @@ def refresh():
 	if uart_stopwatch.toc()<UART_INTERVAL:
 		return
 	global last_message,raw_weights,raw_imu
-	tic()
+	# tic()
 	data = uart.readline() #For some reason, calling readline twice avoids parsing errors. 
 	data = uart.readline() #I'm not entirely sure why, but the average time it takes to do it twice is about 0.0004883 seconds, so it seems fine...
-	ptoc()
+	# ptoc()
 	if data is not None:
 		uart_stopwatch.tic()
 		try:
@@ -162,6 +163,7 @@ def refresh():
 		except Exception as e:
 			if not SILENT_ERRORS:
 				print("Nano UART Error:",str(e))
+			display.set_text(str(len(data))+'\n'+str(e))
 			error_blink()
 			return #Eager to give up if something goes wrong, which happens occasionally...don't sweat it when it does, we'll get another message in 1/80 seconds from now...
 		else:
@@ -179,6 +181,7 @@ def refresh():
 			except Exception as e:
 				if not SILENT_ERRORS:
 					print_error("Nano Parsing Error:",str(e))
+				display.set_text(str(len(data))+'\nParse\n'+str(e))
 				error_blink()
 				return
 
