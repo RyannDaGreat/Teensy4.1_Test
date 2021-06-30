@@ -6,4 +6,7 @@ import lightboard.display as display
 import lightboard.buttons as buttons
 import lightboard.pressure as pressure
 
+
+pressure.test_pressure()
+
 pressure.show_calibration_menu()

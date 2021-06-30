@@ -3,11 +3,12 @@ import busio
 from urp import *
 from linear_modules import *
 import lightboard.buttons as buttons
+import lightboard.neopixels as neopixels
 from lightboard.config import config
 
 calibration_weight_address='load_cell calibration weight'
 
-uart =busio.UART(board.D29, board.D28, baudrate=115200, timeout=1000*(1/115200),receiver_buffer_size=512) #Make timeout as small as possible without accidently not reading the whole line...
+uart =busio.UART(board.D29, board.D28, baudrate=115200, timeout=1000*(1/115200),receiver_buffer_size=2048) #Make timeout as small as possible without accidently not reading the whole line...
 
 uart_stopwatch=Stopwatch()
 UART_INTERVAL=1/80/2 #How often should we poll the Nano? (It should output a message 80 times a second)
@@ -40,6 +41,7 @@ class LoadCellCalibration:
 		config[self.grams_per_raw_value_address] = self.grams_per_raw_value
 
 	def get_precise_raw_reading(self,message:str):
+		import lightboard.display as display
 		countdown_time=7
 		countdown_stopwatch=Stopwatch() 
 		sampling_delay=2 #When you press the button, you wobble the lightwave. Wait till the wobbling is finished before sampling the weight.
@@ -61,19 +63,25 @@ class LoadCellCalibration:
 
 	def run_calibration(self,grams):
 		import lightboard.widgets as widgets
+		import lightboard.display as display
 
 		#grams represents the weight of the object that we use to calibrate the load cell
 		with display.TemporarySetText('Please take all weight off \nload cell '+repr(self.load_cell.name)+'\nThen press green button 1'):
-			with buttons.TemporaryMetalButtonLights(0,0,0):
+			with buttons.TemporaryMetalButtonLights(1,0,0):
 				with buttons.TemporaryGreenButtonLights(1,0,0,0):
-					while not buttons.green_1_press_viewer.value:pass
+					while not buttons.green_1_press_viewer.value:
+						if buttons.metal_press_viewer.value and widgets.input_yes_no("Cancel calibration?"):
+							return
 					buttons.green_button_1.light=False
 
 					self.raw_tare_value=self.get_precise_raw_reading('Please don\'t wobble the lightwave!\nPreparing to calibrate (taring...)\n'+repr(self.load_cell.name))
 					display.set_text('Taring complete! Please put your\n'+str(grams)+' gram weight on load cell\n'+repr(self.load_cell.name)+'\nThen press the green button')
 
 					buttons.green_button_1.light=True
-					while not buttons.green_1_press_viewer.value:pass
+					while not buttons.green_1_press_viewer.value:
+						if buttons.metal_press_viewer.value and widgets.input_yes_no("Cancel calibration?"):
+							return
+
 					buttons.green_button_1.light=False
 
 					raw_weighed_value=self.get_precise_raw_reading('Please don\'t wobble the lightwave!\nPreparing to calibrate...\n(Using '+str(grams)+' grams)\n'+repr(self.load_cell.name))
@@ -87,6 +95,7 @@ class LoadCellCalibration:
 						self.save()
 
 	def run_test(self):
+		import lightboard.display as display
 		movmean=MovingAverage(10)
 		buttons.green_button_1.light=True
 		while not buttons.green_1_press_viewer.value:
@@ -104,14 +113,43 @@ class LoadCellCalibration:
 		return (raw_value-self.raw_tare_value)*self.grams_per_raw_value
 
 def test_all_load_cells():
+	import lightboard.display as display
 	#Run a test where we show all load cells' weights at once. TODO: Later on create a graph for this.
 	movmeans=[MovingAverage(1) for _ in load_cells]
 	buttons.green_button_1.light=True
 	while not buttons.green_1_press_viewer.value:
 		values=[movmean(load_cell.calibration.value) for movmean,load_cell in zip(movmeans,load_cells)]
 		text='\n'.join([rjust(load_cell.name,20)+'%10.2f'%value for load_cell,value in zip(load_cells,values)])
+		text+='\n\nSum: %15.2f'%sum(values)
 		display.set_text('Testing all load cells:\n\n'+text+'\n\nPress green button 1 to continue')
 	buttons.green_button_1.light=False
+
+def tare_all_load_cells():
+	import lightboard.display as display
+	import lightboard.buttons as buttons
+	import lightboard.widgets as widgets
+	#TODO: Unredundify code from get_precise_raw_reading
+	num_samples=1000
+	totals=[0]*len(load_cells)
+	if not widgets.input_yes_no('Are you ready to tare?\nRemove all objects from the lightboard'):
+		return
+	
+	display.set_text('Please wait a few seconds...')
+	for _ in range(num_samples):
+		for i,load_cell in enumerate(load_cells):
+			totals[i]+=load_cell.raw_value
+		sleep(UART_INTERVAL)
+
+	means=[total/num_samples for total in totals]
+
+	for mean,load_cell in zip(means,load_cells):
+		load_cell.calibration.raw_tare_value=mean
+
+	test_all_load_cells()
+
+	if not widgets.input_yes_no('Keep this calibration?'):
+		for load_cell in load_cells:
+			load_cell.save()
 
 class LoadCell:
 	def __init__(self,name:str):
@@ -150,7 +188,7 @@ load_cells=[top_left,top_right,
             mid_left,mid_right,
             bot_left,bot_right]
 
-SILENT_ERRORS=True
+SILENT_ERRORS=False
 
 def error_blink():
 	colors=[(0,0,1),(0,1,0),(1,0,0)]
@@ -183,6 +221,7 @@ def refresh():
 			assert last_message[0]=='>' and last_message[-1]=='<','Failed ><: '+repr(last_message)
 		except Exception as e:
 			if not SILENT_ERRORS:
+				import lightboard.display as display
 				print("Nano UART Error:",str(e))
 				display.set_text('+++++++++++++\n\n\n'+str(len(data))+'\n'+str(e))
 				error_blink()
@@ -199,12 +238,14 @@ def refresh():
 					load_cell.raw_value=raw_weight
 			except Exception as e:
 				if not SILENT_ERRORS:
+					import lightboard.display as display
 					print_error("Nano Parsing Error:",str(e))
 					display.set_text(str(len(data))+'\nParse\n'+str(e))
 					error_blink()
 				return
 	elif not data:
 		if not SILENT_ERRORS:
+			import lightboard.display as display
 			error_blink()
 			display.set_text("XXXXXXXX")
 
@@ -220,18 +261,70 @@ def input_set_calibration_weight():
 	except KeyboardInterrupt:
 		pass
 
+def get_total_load_cell_weight():
+	#TODO: Add calibration for the total weight, and accelerometer correction
+	return sum(load_cell.calibration.value for load_cell in load_cells)
+
+def test_total_load_cell_weight():
+	import lightboard.display as display
+	movmean=MovingAverage(1)
+	buttons.green_button_1.light=True
+	while not buttons.green_1_press_viewer.value:
+		value=get_total_load_cell_weight()
+		value=movmean(value)
+		display.set_text('Testing raw calibrated\nload cell total:\n\n%15.3f\n\nPress green button 1 to continue'%(value))
+	buttons.green_button_1.light=False
+
+def test_pressure():
+	import lightboard.display as display
+	movmean=MovingAverage(1)
+	buttons.green_button_1.light=True
+	while not buttons.green_1_press_viewer.value:
+		tic()
+		value=get_pressure()
+		ptoc()
+		# value=movmean(value)
+		display.set_text('Testing pressure:\n\n%15.3f\n\nPress green button 1 to continue'%(value))
+
+		neopixels.display_line(0,min(neopixels.length,max(0,value*neopixels.length)))
+	buttons.green_button_1.light=False
+
+
+weight_per_pressure_address='load_cell weight_per_pressure'
+
+def get_weight_per_pressure():
+	return config[weight_per_pressure_address] if weight_per_pressure_address in config else 1000
+
+def set_weight_per_pressure(value):
+	config[weight_per_pressure_address]=value
+
+def input_set_weight_per_pressure():
+	config[weight_per_pressure_address]=widgets.input_integer(get_weight_per_pressure(),prompt='How many grams per pressure?')
+
+def get_pressure():
+	return get_total_load_cell_weight()/get_weight_per_pressure()
+
+
 def show_calibration_menu():
 	import lightboard.display as display
 	import lightboard.buttons as buttons
 	import lightboard.widgets as widgets
 
-	test_cell     ='Test Load Cell'
-	test_all_cells='Test All Load Cells'
-	calibrate_cell='Calibrate Load Cell'
-	set_weight    ='Set Calibration Weight'
+	test_cell         ='Test Load Cell'
+	test_all_cells    ='Test All Load Cells'
+	calibrate_cell    ='Calibrate Load Cell'
+	set_weight        ='Set Calibration Weight'
+	tare_all_cells    ='Tare All Load Cells'
+	test_total_raw    ='Test Raw Total Weight'
+	do_test_pressure  ='Test Pressure'
+	set_pressure_coeff='Set Pressure Coefficient'
+
 
 	while True:
-		task=widgets.input_select([calibrate_cell,test_cell,test_all_cells,set_weight],prompt='What do you want to do?',can_cancel=True,must_confirm=False,confirm_cancel=False)
+		try:
+			task=widgets.input_select([calibrate_cell,test_cell,test_all_cells,set_weight,tare_all_cells,test_total_raw,do_test_pressure,set_pressure_coeff],prompt='What do you want to do?',can_cancel=True,must_confirm=False,confirm_cancel=False)
+		except KeyboardInterrupt:
+			break
 		if task==calibrate_cell or task==test_cell:
 			try:
 				while True:
@@ -247,5 +340,13 @@ def show_calibration_menu():
 			test_all_load_cells()
 		elif task==set_weight:
 			input_set_calibration_weight()
+		elif task==tare_all_cells:
+			tare_all_load_cells()
+		elif task==test_total_raw:
+			test_total_load_cell_weight()
+		elif task==do_test_pressure:
+			test_pressure()
+		elif task==set_pressure_coeff:
+			input_set_weight_per_pressure()
 		else:
-			assert False,'Internal logical error: invalid task'
+			assert False,'Internal logical error: invalid task: '+repr(task)

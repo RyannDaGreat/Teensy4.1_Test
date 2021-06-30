@@ -65,6 +65,8 @@ def draw_line(start,end,r,g,b):
 	assert start<=end
 	if end<0 or start>=length:
 		return
+	end=min(end,length)#Prevent memory errors
+	start=max(0,start)
 	buffer[start*3:end*3+3]=bytearray([g,r,b])*(end-start+1)
 
 def draw_dot(index,r=63,g=63,b=63):
