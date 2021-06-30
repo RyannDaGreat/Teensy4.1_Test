@@ -1,26 +1,31 @@
 #r stands for 'micro-rp'
 #This library is originally designed for CircuitPython on my Teensy4.0 and Teensy4.1 boards. If using other implementations or boards, you might need to adapt this code.
 #Attempt to make the Teensy's drive space writeable...
+
 read_only=True
-import lightboard.battery
-if lightboard.battery.is_connected():
-	# import lightboard.display
-	# lightboard.display.set_text("BATTERY ON!")
-	try:
-		#Try to mitigate errors when saving files
-		#		open('file.txt','wb')
-		#	results in...
-		#		OSError: [Errno 30] Read-only filesystem
-		import storage
-		storage.remount('/', readonly=False)
-		read_only=False
-		# lightboard.display.set_text("Writeable!")
-	except RuntimeError as error:
-		#When plugged into USB, this doesn't work - and there's no way to write to the filesystem :\
-		#SD cards don't work in the current circuitpython version...
-		#	RuntimeError: Cannot remount '/' when USB is active.
-		print("Failed to remount:",error)
-		pass
+def attempt_to_mount():
+	import lightboard.battery
+	global read_only
+	if lightboard.battery.is_connected():
+		# import lightboard.display
+		# lightboard.display.set_text("BATTERY ON!")
+		try:
+			#Try to mitigate errors when saving files
+			#		open('file.txt','wb')
+			#	results in...
+			#		OSError: [Errno 30] Read-only filesystem
+			import storage
+			storage.remount('/', readonly=False)
+			read_only=False
+			# lightboard.display.set_text("Writeable!")
+		except RuntimeError as error:
+			#When plugged into USB, this doesn't work - and there's no way to write to the filesystem :\
+			#SD cards don't work in the current circuitpython version...
+			#	RuntimeError: Cannot remount '/' when USB is active.
+			print("Failed to remount:",error)
+			pass
+
+# attempt_to_mount() #TODO: When we fix the power issue, we can bring this back to automatic mode. For now, its triggered in a dialog from code.py
 
 import time
 from time import sleep

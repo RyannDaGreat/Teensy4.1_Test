@@ -306,7 +306,7 @@ def set_weight_per_pressure(value):
 	config[weight_per_pressure_address]=value
 
 def input_set_weight_per_pressure():
-	import lightboard.widgets widgets
+	import lightboard.widgets as widgets
 	config[weight_per_pressure_address]=widgets.input_integer(get_weight_per_pressure(),prompt='How many grams per pressure?')
 
 def get_pressure():

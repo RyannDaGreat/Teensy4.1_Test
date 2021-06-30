@@ -174,4 +174,3 @@ def input_integer(initial_value:int=0,num_digits:int=6,allow_negative:bool=False
 				display.set_menu(labels=prefix+body+suffix,
 				                 index =len(prefix)+index,
 				                 colors=colors)
-
