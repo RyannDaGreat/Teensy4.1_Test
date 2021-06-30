@@ -208,10 +208,13 @@ def refresh():
 		return
 	global last_message,raw_weights,raw_imu
 	# tic()
-	data = uart.readline() #For some reason, calling readline twice avoids parsing errors. 
-	data = uart.readline() #I'm not entirely sure why, but the average time it takes to do it twice is about 0.0004883 seconds, so it seems fine...
+	# uart.write_timeout(0)
+	uart.reset_input_buffer()
+	uart.write(b'X') #Write exactly 1 byte to the nano (doesnt matter what that byte is)
+	data=uart.readline()
+
 	# ptoc()
-	if data is not None:
+	if data:
 		uart_stopwatch.tic()
 		try:
 			last_message=data.decode().strip()
@@ -243,7 +246,7 @@ def refresh():
 					display.set_text(str(len(data))+'\nParse\n'+str(e))
 					error_blink()
 				return
-	elif not data:
+	else:
 		if not SILENT_ERRORS:
 			import lightboard.display as display
 			error_blink()
@@ -281,12 +284,13 @@ def test_pressure():
 	buttons.green_button_1.light=True
 	while not buttons.green_1_press_viewer.value:
 		tic()
+		# refresh()
 		value=get_pressure()
 		ptoc()
 		# value=movmean(value)
-		display.set_text('Testing pressure:\n\n%15.3f\n\nPress green button 1 to continue'%(value))
+		# display.set_text('Testing pressure:\n\n%15.3f\n\nPress green button 1 to continue'%(value))
+		neopixels.display_dot(min(neopixels.length,max(0,value*neopixels.length)))
 
-		neopixels.display_line(0,min(neopixels.length,max(0,value*neopixels.length)))
 	buttons.green_button_1.light=False
 
 
