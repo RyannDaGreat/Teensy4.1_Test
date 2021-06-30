@@ -11,7 +11,7 @@ calibration_weight_address='load_cell calibration weight'
 uart =busio.UART(board.D29, board.D28, baudrate=115200, timeout=1000*(1/115200),receiver_buffer_size=2048) #Make timeout as small as possible without accidently not reading the whole line...
 
 uart_stopwatch=Stopwatch()
-UART_INTERVAL=1/80/2 #How often should we poll the Nano? (It should output a message 80 times a second)
+REFRESH_INTERVAL=1/80 #How often should we poll the Nano? (It should output a message 80 times a second). Decreasing this means the weight sensors will be updated less frequently, but means other sensors will be updated faster
 
 class LoadCellFilter:
 	def __init__(self):
@@ -138,7 +138,7 @@ def tare_all_load_cells():
 	for _ in range(num_samples):
 		for i,load_cell in enumerate(load_cells):
 			totals[i]+=load_cell.raw_value
-		sleep(UART_INTERVAL)
+		sleep(REFRESH_INTERVAL)
 
 	means=[total/num_samples for total in totals]
 
@@ -204,14 +204,17 @@ raw_weights=[0]*6
 raw_imu    =[0]*6
 def refresh():
 	#TODO: We need an explanation for why using readline twice seems to make everything ok. Maybe we don't need to make a complex stateful parser?
-	if uart_stopwatch.toc()<UART_INTERVAL:
+	if uart_stopwatch.toc()<REFRESH_INTERVAL:
 		return
 	global last_message,raw_weights,raw_imu
 	# tic()
 	# uart.write_timeout(0)
+
+	# tic()
 	uart.reset_input_buffer()
 	uart.write(b'X') #Write exactly 1 byte to the nano (doesnt matter what that byte is)
 	data=uart.readline()
+	# ptoc() #This takes almost exactly 1/100 seconds: .009s
 
 	# ptoc()
 	if data:
@@ -283,13 +286,13 @@ def test_pressure():
 	movmean=MovingAverage(1)
 	buttons.green_button_1.light=True
 	while not buttons.green_1_press_viewer.value:
-		tic()
 		# refresh()
+		tic()
 		value=get_pressure()
-		ptoc()
 		# value=movmean(value)
 		# display.set_text('Testing pressure:\n\n%15.3f\n\nPress green button 1 to continue'%(value))
-		neopixels.display_dot(min(neopixels.length,max(0,value*neopixels.length)))
+		neopixels.display_line(0,min(neopixels.length,max(0,value*neopixels.length)))
+		ptoc()
 
 	buttons.green_button_1.light=False
 
@@ -303,6 +306,7 @@ def set_weight_per_pressure(value):
 	config[weight_per_pressure_address]=value
 
 def input_set_weight_per_pressure():
+	import lightboard.widgets widgets
 	config[weight_per_pressure_address]=widgets.input_integer(get_weight_per_pressure(),prompt='How many grams per pressure?')
 
 def get_pressure():
