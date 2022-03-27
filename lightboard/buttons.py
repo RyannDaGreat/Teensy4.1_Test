@@ -189,3 +189,51 @@ green_press_viewers=(green_1_press_viewer,
                      green_4_press_viewer)
 
 metal_press_viewer  =ButtonPressViewer(metal_button)
+
+
+def test_press_viewers():
+	#Make sure the press_viewers work as expected
+
+	import lightboard.neopixels as neopixels
+	import lightboard.display as display
+
+	green_1_counter = 0
+	green_2_counter = 0
+	green_3_counter = 0
+	green_4_counter = 0
+	metal_counter   = 0
+
+	def display_state():
+		lines = []
+		lines+=['Button Press Counters:']
+		lines+=['   - Green 1: %i'%green_1_counter]
+		lines+=['   - Green 2: %i'%green_2_counter]
+		lines+=['   - Green 3: %i'%green_3_counter]
+		lines+=['   - Green 4: %i'%green_4_counter]
+		lines+=['   - Metal  : %i'%metal_counter  ]
+		lines+=['Press three buttons at once to exit']
+		display.set_text('\n'.join(lines))
+
+		for button in green_buttons:
+			button.light = button.value
+		metal_button.color = (metal_button.value, 0, 0)
+
+	def num_pressed():
+		all_buttons = (metal_button,) + green_buttons
+		return sum(b.value for b in all_buttons)
+
+	while True:
+		if num_pressed()>=3:
+			display.set_text('Button Test Done!')
+			return
+
+		if metal_press_viewer  .value: metal_counter  +=1
+		if green_1_press_viewer.value: green_1_counter+=1
+		if green_2_press_viewer.value: green_2_counter+=1
+		if green_3_press_viewer.value: green_3_counter+=1
+		if green_4_press_viewer.value: green_4_counter+=1
+
+		display_state()
+
+
+
