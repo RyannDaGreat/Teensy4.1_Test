@@ -281,6 +281,14 @@ def test_total_load_cell_weight():
 		display.set_text('Testing raw calibrated\nload cell total:\n\n%15.3f\n\nPress green button 1 to continue'%(value))
 	buttons.green_button_1.light=False
 
+def test_uart_load_cells():
+	#Use this to debug the Nano's raw outputs in an Arduino serial graph
+	while True:
+		uart.reset_input_buffer()
+		uart.write(b'X') #Write exactly 1 byte to the nano (doesnt matter what that byte is)
+		data=uart.readline()
+		print(data.decode()[2:-3])
+
 def test_pressure():
 	import lightboard.display as display
 	movmean=MovingAverage(1)
