@@ -12,6 +12,6 @@ if not widgets.input_yes_no('Connected to PC?'):
 	attempt_to_mount()
 
 
-pressure.test_pressure()
+# pressure.test_pressure()
 
 pressure.show_calibration_menu()
