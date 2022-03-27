@@ -556,6 +556,34 @@ class ProcessedCheapSingleTouchReading:
 			ribbon.cheap_single_filter.clear()
 			# pass
 
+def test_ribbon_raw_uart(ribbon):
+	#Use this test to print all (raw, uncalibrated) ribbon values to uart
+	#Then, you can view them in an arduino grapher
+	import lightboard.buttons as buttons
+	import lightboard.display as display
+
+	display.set_text('Running raw uart test\nPress metal button\nto end this test\n\nThe green buttons show\ncheap_gate and single_gate\n(They\'re just for display)')
+	buttons.set_green_button_lights(0,0,0,0)
+	buttons.metal_button.color=(255,0,0)
+
+	while True:
+		cheap =ribbon.cheap_single_touch_reading()
+		single=ribbon.single_touch_reading()
+		dual  =ribbon.dual_touch_reading()
+
+		c_raw_value,c_gate = cheap.raw_value, cheap.gate
+		raw_value,s_gate = single.raw_value, single.gate
+		raw_a,raw_b = dual.raw_a,dual.raw_b
+
+		message = '%s %i %i %.5f %.5f %.5f %.5f'%(ribbon.name, int(c_gate), int(s_gate), c_raw_value, raw_value, raw_a, raw_b)
+		print(message)
+
+		buttons.set_green_button_lights(c_gate,s_gate,0,0)
+
+		if buttons.metal_button.value:
+			buttons.metal_button.color=(0,0,0)
+			display.set_text('Running raw uart test:\nDone!')
+			break
 
 
 ribbon_a=Ribbon('a',rib_a_mid,ads_a,ads_a_single,ads_a_dual_top,ads_a_dual_b)
