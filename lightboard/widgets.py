@@ -8,10 +8,13 @@ def input_yes_no(prompt):
 		# with display.TemporarySetText(prompt+'\n(Button 1 -> Yes, Metal Button -> No)'):
 			display.set_text(prompt+'\nButton 1 -> Yes, Metal Button -> No')
 			while True:
-				if buttons.metal_press_viewer.value:
+				green_val = buttons.green_1_press_viewer.value
+				metal_val = buttons.metal_press_viewer.value
+				if metal_val:
 					return False
-				elif buttons.green_1_press_viewer.value:
+				if green_val:
 					return True
+				buttons.sleep_debounce() #Without this, pressing the metal button might register twice. I think it's because the metal button has worse debounce than the green buttons.
 
 def input_select(options,prompt='Please select an option:',can_cancel=False,must_confirm=True,num_options_per_page=13,confirm_cancel=True):
 	import lightboard.buttons as buttons

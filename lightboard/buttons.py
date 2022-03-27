@@ -190,6 +190,11 @@ green_press_viewers=(green_1_press_viewer,
 
 metal_press_viewer  =ButtonPressViewer(metal_button)
 
+def sleep_debounce():
+	#Sleep the minimum time to debounce the buttons
+	#This is sloppy...but at least all parts of the code that use this should sleep the same minimal amount.
+	from urp import sleep
+	sleep(.05)
 
 def test_press_viewers():
 	#Make sure the press_viewers work as expected
