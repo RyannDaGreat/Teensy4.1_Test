@@ -198,7 +198,7 @@ class Ribbon:
 				i=min(neopixels.length-1,max(0,i))
 				neopixels.display_dot(i,63,0,0)
 
-			if buttons.metal_button.value:
+			if buttons.metal_press_viewer.value:
 				if widgets.input_yes_no("Do you want to cancel calibration?\n(All progress will be lost)"):
 					ask_to_try_again()
 					return
@@ -260,7 +260,7 @@ class Ribbon:
 		display.set_text('Finished calibration on ribbon '+self.name+'\nTry the ribbon out to see if you like it\nAlso rinting out sensor values to serial for a demo\n(Watch in the arduino plotter)\nPress the metal button when you\'re done')
 
 
-		while not buttons.metal_button.value:
+		while not buttons.metal_press_viewer.value:
 			if self.cheap_single_touch_reading().gate:
 				with neopixels.TemporarilyTurnedOff():
 					cheap_single_touch_reading=self.cheap_single_touch_reading()
@@ -293,7 +293,7 @@ class Ribbon:
 			return mean((x-u)**2 for x in l)**.5
 		tether=SoftTether(size=5)
 		tet2=Tether(1)
-		while not buttons.metal_button.value:
+		while not buttons.metal_press_viewer.value:
 			single=self.single_touch_reading()
 			# if single_reader.error:
 				# print("ERROR:",single_reader.error)
@@ -581,7 +581,7 @@ def test_ribbon_raw_uart(ribbon):
 
 		buttons.set_green_button_lights(c_gate,s_gate,0,0)
 
-		if buttons.metal_button.value:
+		if buttons.metal_press_viewer.value:
 			buttons.metal_button.color=(0,0,0)
 			display.set_text('Running raw uart test:\nDone!')
 			break
