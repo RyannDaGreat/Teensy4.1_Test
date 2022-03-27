@@ -2,9 +2,10 @@
 ribbon_a=None
 ribbon_b=None
 
-##########HUGE NOTE:
-##########As it turns out, the internal ADC in the Teensy is NOT very susceptible to fluctuations in the Neopixels' current...BUT...the ADS1115 IS. 
-##########Therefore, I think a better model would ditch the ADS1115 alltogether - replacing it with a simple 8x toggleable amp for dual touches. 
+#Notes:
+#    - As it turns out, the internal ADC in the Teensy is NOT very susceptible to fluctuations in the Neopixels' current...BUT...the ADS1115 IS. 
+#      Therefore, I think a better model would ditch the ADS1115 alltogether - replacing it with a simple 8x toggleable amp for dual touches. 
+#    - Shouldn't cause errors. No scl/sda pullup means the board isn't connected. No i2c at 48 means the individual chip isn't powered or connected etc. I just ficed a bad solder joint that took a while to flare up.......maybe this is what happened with the old lightwave? I was too quick with the solder joints, leaving a bubble that didn't touch it because of some stress bs later on?
 
 __all__=['ribbon_a','ribbon_b']
 
