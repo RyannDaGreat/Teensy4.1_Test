@@ -30,7 +30,7 @@ display_bus = displayio.FourWire(spi, command=tft_dc, chip_select=tft_cs, reset=
 display = ST7789(display_bus, width=WIDTH, height=HEIGHT, rotation=ROTATION, auto_refresh=False)
 
 # Make the display context
-text_splash = displayio.Group(max_size=64,scale=1)
+text_splash = displayio.Group(scale=1)
 display.show(text_splash)
 
 color_bitmap = displayio.Bitmap(WIDTH, HEIGHT, 1)
@@ -49,21 +49,20 @@ inner_sprite = displayio.TileGrid(inner_bitmap, pixel_shader=inner_palette, x=BO
 text_splash.append(inner_sprite)
 
 # Draw a label
-text_group = displayio.Group(max_size=1, scale=1, x=25, y=25)
+text_group = displayio.Group(scale=1, x=25, y=25)
 text = "Hello World!"
-text_area = label.Label(terminalio.FONT, text=text, color=0xFFFFFF,max_glyphs=1024)#512 is probably good enough for most purposes...but 1024 can fill the entire screen AND more...512 cannot...1024 takes about 4kb more memory than 512.
+text_area = label.Label(terminalio.FONT, text=text, color=0xFFFFFF)#512 is probably good enough for most purposes...but 1024 can fill the entire screen AND more...512 cannot...1024 takes about 4kb more memory than 512.
 text_group.append(text_area)  # Subgroup for text scaling
 text_splash.append(text_group)
 
-# text_area2 = label.Label(terminalio.FONT, text="GRUMBO", y=25, color=0xFFFFFF,max_glyphs=1024)#512 is probably good enough for most purposes...but 1024 can fill the entire screen AND more...512 cannot...1024 takes about 4kb more memory than 512.
+# text_area2 = label.Label(terminalio.FONT, text="GRUMBO", y=25, color=0xFFFFFF)#512 is probably good enough for most purposes...but 1024 can fill the entire screen AND more...512 cannot...1024 takes about 4kb more memory than 512.
 # text_splash.append(text_area2)  # Subgroup for text scaling
-# menu_splash = displayio.Group(max_size=60)
+# menu_splash = displayio.Group()
 menu_splash = text_splash
 MENU_FONT=terminalio.FONT
 MENU_FONT_WIDTH,MENU_FONT_HEIGHT=MENU_FONT.get_bounding_box()
 MENU_MAX_LINES=30
 MENU_LINE_SPACING=0 #Empty space between lines, in number of pixels
-MENU_MAX_CHARS_PER_LINE=WIDTH//MENU_FONT_WIDTH+1
 MENU_X_ORIGIN=15
 MENU_Y_ORIGIN=25
 menu_labels=[]
@@ -78,7 +77,6 @@ for i in range(MENU_MAX_LINES):
 	menu_label = label.Label(MENU_FONT,
 	                         text='',
 	                         color=0xFFFFFF,
-	                         max_glyphs=MENU_MAX_CHARS_PER_LINE,
 	                         x=label_x,
 	                         y=label_y)
 	menu_splash.append(menu_label)
@@ -143,17 +141,15 @@ class TemporarySetText:
 ######################### EFFICIENT MENU DISPLAYS ############################
 
 # Make the display context
-# menu_splash = text_splash#displayio.Group(max_size=20)
+# menu_splash = text_splash#displayio.Group()
 
 # MENU_MAX_LINES=12
 # MENU_LINE_SPACING=10
-# MENU_MAX_CHARS_PER_LINE=60
 # MENU_X_ORIGIN=25
 # MENU_Y_ORIGIN=25
 # menu_labels=[]
 # for i in range(MENU_MAX_LINES):
 # 	print("SHOWING",i)
-# 	menu_label = label.Label(terminalio.FONT,text='Line %i TEST Text ---___---'%i, color=0xFFFFFF,max_glyphs=MENU_MAX_CHARS_PER_LINE,x=MENU_X_ORIGIN, y=MENU_Y_ORIGIN+i*MENU_LINE_SPACING)
 # 	# menu_labels.append(menu_label)
 # 	menu_splash.append(menu_label)
 # 	display.refresh()
@@ -184,7 +180,6 @@ def set_menu(labels,index:int=None,colors=None,refresh=True):
 	for i,label in enumerate(labels+('',)*(len(menu_labels)-len(labels))):
 		# print(i,len(menu_labels),len(labels),'CHUNKER')
 		color=colors[i]
-		label=label[:MENU_MAX_CHARS_PER_LINE]
 		if menu_labels[i].text!=label:
 			#Only change the ones that need to be changed...
 			menu_labels[i].text=label

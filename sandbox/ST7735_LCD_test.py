@@ -12,7 +12,7 @@ display_bus = displayio.FourWire(spi, command=tft_dc, chip_select=tft_cs, reset=
 display = ST7735(display_bus, width=128, height=128)
 
 # Make the display context
-splash = displayio.Group(max_size=10)
+splash = displayio.Group()
 display.show(splash)
 
 color_bitmap = displayio.Bitmap(128, 128, 1)

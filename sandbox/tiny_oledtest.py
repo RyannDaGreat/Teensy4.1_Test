@@ -37,7 +37,7 @@ display = adafruit_displayio_ssd1306.SSD1306(display_bus, width=WIDTH, height=HE
 
 def f(text='Hello World!'):
 	# Make the display context
-	splash = displayio.Group(max_size=10)
+	splash = displayio.Group()
 
 	color_bitmap = displayio.Bitmap(WIDTH, HEIGHT, 1)
 	color_palette = displayio.Palette(1)
