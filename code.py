@@ -8,7 +8,7 @@ import lightboard.pressure as pressure
 import lightboard.widgets as widgets
 
 
-if widgets.input_yes_no('Mount?'):
+if not widgets.input_yes_no('Connected to PC?'):
 	attempt_to_mount()
 
 
