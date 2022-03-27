@@ -112,13 +112,13 @@ class LoadCellCalibration:
 	def __call__(self,raw_value):
 		return (raw_value-self.raw_tare_value)*self.grams_per_raw_value
 
-def test_all_load_cells():
+def test_all_load_cells(raw=False):
 	import lightboard.display as display
 	#Run a test where we show all load cells' weights at once. TODO: Later on create a graph for this.
 	movmeans=[MovingAverage(1) for _ in load_cells]
 	buttons.green_button_1.light=True
 	while not buttons.green_1_press_viewer.value:
-		values=[movmean(load_cell.calibration.value) for movmean,load_cell in zip(movmeans,load_cells)]
+		values=[movmean(load_cell.calibration.value if not raw else load_cell.raw_value) for movmean,load_cell in zip(movmeans,load_cells)]
 		text='\n'.join([rjust(load_cell.name,20)+'%10.2f'%value for load_cell,value in zip(load_cells,values)])
 		text+='\n\nSum: %15.2f'%sum(values)
 		display.set_text('Testing all load cells:\n\n'+text+'\n\nPress green button 1 to continue')
@@ -320,6 +320,7 @@ def show_calibration_menu():
 
 	test_cell         ='Test Load Cell'
 	test_all_cells    ='Test All Load Cells'
+	test_all_cells_raw='Test All Load Cells Raw'
 	calibrate_cell    ='Calibrate Load Cell'
 	set_weight        ='Set Calibration Weight'
 	tare_all_cells    ='Tare All Load Cells'
@@ -330,7 +331,18 @@ def show_calibration_menu():
 
 	while True:
 		try:
-			task=widgets.input_select([calibrate_cell,test_cell,test_all_cells,set_weight,tare_all_cells,test_total_raw,do_test_pressure,set_pressure_coeff],prompt='What do you want to do?',can_cancel=True,must_confirm=False,confirm_cancel=False)
+			options = [
+				calibrate_cell,
+				test_cell,
+				test_all_cells,
+				test_all_cells_raw,
+				set_weight,
+				tare_all_cells,
+				test_total_raw,
+				do_test_pressure,
+				set_pressure_coeff,
+			]
+			task=widgets.input_select(options, prompt='What do you want to do?',can_cancel=True,must_confirm=False,confirm_cancel=False)
 		except KeyboardInterrupt:
 			break
 		if task==calibrate_cell or task==test_cell:
@@ -345,7 +357,9 @@ def show_calibration_menu():
 			except KeyboardInterrupt:
 				pass
 		elif task==test_all_cells:
-			test_all_load_cells()
+			test_all_load_cells(raw=False)
+		elif task==test_all_cells_raw:
+			test_all_load_cells(raw=True)
 		elif task==set_weight:
 			input_set_calibration_weight()
 		elif task==tare_all_cells:
