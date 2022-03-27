@@ -360,6 +360,8 @@ class NoiseFilter:
 
 
 class SingleTouchReading:
+	__slots__=['gate','raw_lower','raw_upper','raw_gap', 'raw_value']
+
 	GATE_THRESHOLD=500 #This needs to be calibrated after observing the raw_gap when touching and not touching the ribbon. You can do this automatically with some fancy algorithm, or you can just look at the serial monitor while printing reading.raw_gap over and over again
 
 	def __init__(self,ribbon):
@@ -422,6 +424,8 @@ class CheapSingleTouchReading(SingleTouchReading):
 		self.raw_upper=self.ribbon.rib_mid.value
 
 class DualTouchReading:
+	__slots__ = ['raw_a', 'raw_b']
+
 	def __init__(self,ribbon):
 		self.ribbon=ribbon
 		self.prepare_to_read()
