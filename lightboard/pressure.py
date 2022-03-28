@@ -302,6 +302,7 @@ def test_pressure():
 		# value=movmean(value)
 		# display.set_text('Testing pressure:\n\n%15.3f\n\nPress green button 1 to continue'%(value))
 		neopixels.display_line(0,min(neopixels.length,max(0,value*neopixels.length)))
+		display.set_text('Pressure:\n%1.4f\n\nPress metal to exit'%value)
 		ptoc()
 
 	buttons.green_button_1.light=False
@@ -320,6 +321,8 @@ def input_set_weight_per_pressure():
 	config[weight_per_pressure_address]=widgets.input_integer(get_weight_per_pressure(),prompt='How many grams per pressure?')
 
 def get_pressure():
+	#1 is for full pressure, 0 is for no pressure. This is turned into MIDI. 
+	#This is not weight in grams, or number of neopixels. It's a scale from 0 to 1.
 	return get_total_load_cell_weight()/get_weight_per_pressure()
 
 def show_calibration_menu():
