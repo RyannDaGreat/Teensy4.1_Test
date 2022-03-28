@@ -32,7 +32,7 @@ def input_select(options,prompt='Please select an option:',can_cancel=False,must
 	num_pages=len(options)//num_options_per_page
 	prefix_page_num_index=0
 	def update_prefix_page_num():
-		prefix[prefix_page_num_index]='Showing page %i of %i'%(page_num,num_pages)
+		prefix[prefix_page_num_index]='Showing page %i of %i'%(page_num+1,num_pages+1)
 	if num_pages>0:
 		colors+=[0xBB8844]
 		prefix_page_num_index=len(prefix)
