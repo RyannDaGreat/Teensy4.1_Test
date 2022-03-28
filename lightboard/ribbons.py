@@ -14,6 +14,7 @@ import time
 import board
 import busio
 import adafruit_ads1x15.ads1115 as ADS
+from collections import OrderedDict
 from adafruit_ads1x15.ads1x15 import Mode
 from adafruit_ads1x15.analog_in import AnalogIn as ADS1115_AnalogIn
 from digitalio import DigitalInOut, Direction, Pull
@@ -95,13 +96,13 @@ class Ribbon:
 		self.ads_dual_top=ads_dual_top
 		self.ads_dual_bot=ads_dual_bot
 
-		dual_touch_top_to_neopixel_calibration_path     = path_join(self.CALIBRATION_FOLDER,self.name+'_dual_touch_top_to_neopixel_calibration'      )
-		dual_touch_bot_to_neopixel_calibration_path     = path_join(self.CALIBRATION_FOLDER,self.name+'_dual_touch_bot_to_neopixel_calibration'      )
+		dual_touch_top_to_neopixel_calibration_path     = path_join(self.CALIBRATION_FOLDER,self.name+'_dual_touch_top_to_neopixel_calibration'    )
+		dual_touch_bot_to_neopixel_calibration_path     = path_join(self.CALIBRATION_FOLDER,self.name+'_dual_touch_bot_to_neopixel_calibration'    )
 		single_touch_to_neopixel_calibration_path       = path_join(self.CALIBRATION_FOLDER,self.name+'_single_touch_to_neopixel_calibration'      )
 		cheap_single_touch_to_neopixel_calibration_path = path_join(self.CALIBRATION_FOLDER,self.name+'_cheap_single_touch_to_neopixel_calibration')
 
-		self.dual_touch_top_to_neopixel_calibration     = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=dual_touch_top_to_neopixel_calibration_path      ,auto_load=True)
-		self.dual_touch_bot_to_neopixel_calibration     = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=dual_touch_bot_to_neopixel_calibration_path      ,auto_load=True)
+		self.dual_touch_top_to_neopixel_calibration     = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=dual_touch_top_to_neopixel_calibration_path    ,auto_load=True)
+		self.dual_touch_bot_to_neopixel_calibration     = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=dual_touch_bot_to_neopixel_calibration_path    ,auto_load=True)
 		self.single_touch_to_neopixel_calibration       = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=single_touch_to_neopixel_calibration_path      ,auto_load=True)
 		self.cheap_single_touch_to_neopixel_calibration = HistogramFitter(bin_size=self.RIB_BIN_SIZE,file_path=cheap_single_touch_to_neopixel_calibration_path,auto_load=True)
 
@@ -119,8 +120,8 @@ class Ribbon:
 
 	@property
 	def is_calibrated(self):
-		return self.dual_touch_top_to_neopixel_calibration      .is_fitted and \
-		       self.dual_touch_bot_to_neopixel_calibration      .is_fitted and \
+		return self.dual_touch_top_to_neopixel_calibration    .is_fitted and \
+		       self.dual_touch_bot_to_neopixel_calibration    .is_fitted and \
 		       self.single_touch_to_neopixel_calibration      .is_fitted and \
 		       self.cheap_single_touch_to_neopixel_calibration.is_fitted
 
@@ -167,8 +168,8 @@ class Ribbon:
 		import lightboard.buttons as buttons
 		import lightboard.widgets as widgets
 
-		dual_touch_top_to_neopixel_calibration     = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=self.dual_touch_top_to_neopixel_calibration      .file_path,auto_load=False)
-		dual_touch_bot_to_neopixel_calibration     = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=self.dual_touch_bot_to_neopixel_calibration      .file_path,auto_load=False)
+		dual_touch_top_to_neopixel_calibration     = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=self.dual_touch_top_to_neopixel_calibration    .file_path,auto_load=False)
+		dual_touch_bot_to_neopixel_calibration     = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=self.dual_touch_bot_to_neopixel_calibration    .file_path,auto_load=False)
 		single_touch_to_neopixel_calibration       = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=self.single_touch_to_neopixel_calibration      .file_path,auto_load=False)
 		cheap_single_touch_to_neopixel_calibration = HistogramFitter(bin_size=self.RIB_BIN_SIZE,file_path=self.cheap_single_touch_to_neopixel_calibration.file_path,auto_load=False)
 
@@ -204,8 +205,8 @@ class Ribbon:
 					return
 
 
-		button_press_skip=buttons.ButtonPressViewer(buttons.green_button_1)
-		button_press_back=buttons.ButtonPressViewer(buttons.green_button_2)
+		button_press_skip    =buttons.ButtonPressViewer(buttons.green_button_1)
+		button_press_back    =buttons.ButtonPressViewer(buttons.green_button_2)
 		button_press_finished=buttons.ButtonPressViewer(buttons.green_button_3)
 		buttons.set_green_button_lights(1,1,0,0)
 
@@ -237,8 +238,8 @@ class Ribbon:
 						single_touch_reading      =self.single_touch_reading()
 						dual_touch_reading        =self.dual_touch_reading()
 
-						dual_touch_top_to_neopixel_calibration      .add_sample(dual_touch_reading        .raw_a    ,i)
-						dual_touch_bot_to_neopixel_calibration      .add_sample(dual_touch_reading        .raw_b    ,i)
+						dual_touch_top_to_neopixel_calibration    .add_sample(dual_touch_reading        .raw_a    ,i)
+						dual_touch_bot_to_neopixel_calibration    .add_sample(dual_touch_reading        .raw_b    ,i)
 						single_touch_to_neopixel_calibration      .add_sample(single_touch_reading      .raw_value,i)
 						cheap_single_touch_to_neopixel_calibration.add_sample(cheap_single_touch_reading.raw_value,i)
 
@@ -267,16 +268,40 @@ class Ribbon:
 					single_touch_reading      =self.single_touch_reading()
 					dual_touch_reading        =self.dual_touch_reading()
 
-					dual_top      =dual_touch_top_to_neopixel_calibration      (dual_touch_reading        .raw_a    )
-					dual_b      =dual_touch_bot_to_neopixel_calibration      (dual_touch_reading        .raw_b    )
-					single      =single_touch_to_neopixel_calibration      (single_touch_reading      .raw_value)
+					dual_top = dual_touch_top_to_neopixel_calibration(dual_touch_reading  .raw_a    )
+					dual_bot = dual_touch_bot_to_neopixel_calibration(dual_touch_reading  .raw_b    )
+					single   = single_touch_to_neopixel_calibration  (single_touch_reading.raw_value)
 					cheap_single=cheap_single_touch_to_neopixel_calibration(cheap_single_touch_reading.raw_value)
 
 					if cheap_single_touch_reading.gate and single_touch_reading.gate:
 
 						neopixels.display_dot(int(cheap_single),0,128,0)
 
-						print(dual_top,dual_b,single,cheap_single)
+						print(dual_top,dual_bot,single,cheap_single)
+
+		self.test_smooth_demo()
+
+		if widgets.input_yes_no("Would you like to save this\ncalibration for ribbon "+self.name+"?"):
+			self.dual_touch_top_to_neopixel_calibration     = dual_touch_top_to_neopixel_calibration
+			self.dual_touch_bot_to_neopixel_calibration     = dual_touch_bot_to_neopixel_calibration
+			self.single_touch_to_neopixel_calibration       = single_touch_to_neopixel_calibration
+			self.cheap_single_touch_to_neopixel_calibration = cheap_single_touch_to_neopixel_calibration
+			self.dual_touch_top_to_neopixel_calibration    .save_to_file()
+			self.dual_touch_bot_to_neopixel_calibration    .save_to_file()
+			self.single_touch_to_neopixel_calibration      .save_to_file()
+			self.cheap_single_touch_to_neopixel_calibration.save_to_file()
+			display.set_text("Saved calibrations for ribbon "+self.name+"!")
+			time.sleep(2)
+		else:
+			display.set_text("Cancelled. No calibrations were saved.")
+			time.sleep(2)
+			ask_to_try_again()
+			return
+
+	def test_smooth_demo(self):
+		import lightboard.buttons   as buttons
+		import lightboard.neopixels as neopixels
+		import lightboard.display   as display
 
 		buttons.metal_button.color=(1,0,1)
 		display.set_text("Now for a smoooooth demo...\n(Press the metal button when you're done)")
@@ -314,24 +339,6 @@ class Ribbon:
 				tether.value=None
 
 		neopixels.turn_off()
-
-		if widgets.input_yes_no("Would you like to save this\ncalibration for ribbon "+self.name+"?"):
-			self.dual_touch_top_to_neopixel_calibration      =dual_touch_top_to_neopixel_calibration      
-			self.dual_touch_bot_to_neopixel_calibration      =dual_touch_bot_to_neopixel_calibration      
-			self.single_touch_to_neopixel_calibration      =single_touch_to_neopixel_calibration      
-			self.cheap_single_touch_to_neopixel_calibration=cheap_single_touch_to_neopixel_calibration
-			self.dual_touch_top_to_neopixel_calibration      .save_to_file()
-			self.dual_touch_bot_to_neopixel_calibration      .save_to_file()
-			self.single_touch_to_neopixel_calibration      .save_to_file()
-			self.cheap_single_touch_to_neopixel_calibration.save_to_file()
-			display.set_text("Saved calibrations for ribbon "+self.name+"!")
-			time.sleep(2)
-		else:
-			display.set_text("Cancelled. No calibrations were saved.")
-			time.sleep(2)
-			ask_to_try_again()
-			return
-
 
 class NoiseFilter:
 	#This is a LinearModule
@@ -572,8 +579,8 @@ def test_ribbon_raw_uart(ribbon):
 		single=ribbon.single_touch_reading()
 		dual  =ribbon.dual_touch_reading()
 
-		c_raw_value,c_gate = cheap.raw_value, cheap.gate
-		raw_value,s_gate = single.raw_value, single.gate
+		c_raw_value,c_gate = cheap .raw_value, cheap .gate
+		raw_value  ,s_gate = single.raw_value, single.gate
 		raw_a,raw_b = dual.raw_a,dual.raw_b
 
 		message = '%s %i %i %.5f %.5f %.5f %.5f'%(ribbon.name, int(c_gate), int(s_gate), c_raw_value, raw_value, raw_a, raw_b)
