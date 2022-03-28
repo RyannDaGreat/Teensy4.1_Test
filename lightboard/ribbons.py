@@ -279,7 +279,7 @@ class Ribbon:
 
 						print(dual_top,dual_bot,single,cheap_single)
 
-		self.test_smooth_demo()
+		self.test_smooth_demo(single_touch_to_neopixel_calibration)
 
 		if widgets.input_yes_no("Would you like to save this\ncalibration for ribbon "+self.name+"?"):
 			self.dual_touch_top_to_neopixel_calibration     = dual_touch_top_to_neopixel_calibration
@@ -298,7 +298,7 @@ class Ribbon:
 			ask_to_try_again()
 			return
 
-	def test_smooth_demo(self):
+	def test_smooth_demo(self,single_touch_to_neopixel_calibration=None):
 		import lightboard.buttons   as buttons
 		import lightboard.neopixels as neopixels
 		import lightboard.display   as display
@@ -332,6 +332,8 @@ class Ribbon:
 					Val=(tet2(int(val)))
 				else:
 					Val=(val)
+				if single_touch_to_neopixel_calibration is None:
+					single_touch_to_neopixel_calibration=self.single_touch_to_neopixel_calibration
 				val=single_touch_to_neopixel_calibration(Val)
 				neopixels.display_dot(int(val),64,0,128)
 			else:
@@ -593,6 +595,19 @@ def test_ribbon_raw_uart(ribbon):
 			display.set_text('Running raw uart test:\nDone!')
 			break
 
+def show_calibration_menu():
+	import lightboard.widgets as widgets
+
+	options = OrderedDict()
+
+	options['Calibrate Rib A'] = ribbon_a.run_calibration
+	options['Calibrate Rib B'] = ribbon_b.run_calibration
+	options['Smooth Demo A'  ] = ribbon_a.test_smooth_demo
+	options['Smooth Demo B'  ] = ribbon_b.test_smooth_demo
+	options['Raw UART Demo A'] = lambda: test_ribbon_raw_uart(ribbon_a)
+	options['Raw UART Demo B'] = lambda: test_ribbon_raw_uart(ribbon_b)
+
+	widgets.run_select_subroutine(options)
 
 ribbon_a=Ribbon('a',rib_a_mid,ads_a,ads_a_single,ads_a_dual_top,ads_a_dual_b)
 ribbon_b=Ribbon('b',rib_b_mid,ads_b,ads_b_single,ads_b_dual_top,ads_b_dual_b)
