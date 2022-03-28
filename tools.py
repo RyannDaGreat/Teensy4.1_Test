@@ -132,7 +132,9 @@ class HistogramFitter:
 		if x==int(x):
 			return self[int(x)]
 		alpha=x-int(x)
-		return self[int(x)]+alpha*(self[int(x)+1]-self[int(x)])
+		out = self[int(x)]+alpha*(self[int(x)+1]-self[int(x)])
+		out += 1/2 #SHIFT HACK - this should be a config parameter
+		return out
 
 class NeopixelRibbonVoltageCalibrator:
 	def __init__(self,reader,gate):
