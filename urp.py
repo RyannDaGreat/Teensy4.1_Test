@@ -104,6 +104,21 @@ def midi_note_on(note:int,vel:int=127,chan:int=0):
 	assert 0<=chan<16
 	return bytes([0x90+chan,note,vel])
 
+def midi_cc(channel:int,value:int):
+	#Midi CC == Midi Continuous Controllers
+	#TODO: Support MIDI 2.0
+	assert 0<=channel<128
+	assert 0<=value<128
+	return bytes([176,channel,value])
+
+def midi_mod_wheel(value:int):
+	assert 0<=value<128
+	return midi_cc(1,value)
+
+def midi_mod_wheel_from_float(value:float):
+	value = int(clamp(value*128,0,127))
+	return midi_mod_wheel(value)
+
 def midi_pitch_bend(coarse:int,fine:int):
 	return bytes([224,coarse,fine])
 
