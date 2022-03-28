@@ -109,7 +109,9 @@ class LoadCellCalibration:
 	@property
 	def value(self):
 		#TODO: this object shouldn't be responsible for applying the filter
-		return self(self.load_cell.filter(self.load_cell.value))
+		out=self(self.load_cell.filter(self.load_cell.value))
+		ptoc("calib")
+		return out
 
 	def __call__(self,raw_value):
 		return (raw_value-self.raw_tare_value)*self.grams_per_raw_value
@@ -205,6 +207,7 @@ last_message=None
 raw_weights=[0]*6
 raw_imu    =[0]*6
 def refresh():
+	ptoc("refresh")
 	#TODO: We need an explanation for why using readline twice seems to make everything ok. Maybe we don't need to make a complex stateful parser?
 	if uart_stopwatch.toc()<REFRESH_INTERVAL:
 		return

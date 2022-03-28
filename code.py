@@ -60,17 +60,22 @@ midi_messages_per_second=60
 midi_message_state={'notes_off':set()}
 def send_state():
 	global midi_message_state
-	print(midi_message_state)
+	# print(midi_message_state)
 	message=b''
+	ptoc("CLAF")
 	if 'pitch_bend' in midi_message_state:
 		message+=midi_pitch_bend_from_semitones(midi_message_state['pitch_bend'],-bend_range,bend_range)
 	if 'note_on' in midi_message_state:
 		message+=midi_note_on(midi_message_state['note_on'])
 	if 'notes_off' in midi_message_state:
 		message+=b''.join([midi_note_off(note) for note in set(midi_message_state['notes_off'])])
+	ptoc("HUGO")#0.0070801
 	message+=midi_mod_wheel_from_float(pressure.get_pressure())
+	ptoc("MIMBO")#0.0192871
 	transceiver.send(message,fast=fast)
+	ptoc("JUNK")#0.0290527
 	midi_message_state={'notes_off':set()}
+	ptoc("JARM")
 
 def note_on(note):
 	if 0<=note<=127:
@@ -128,23 +133,32 @@ last_midi_time=seconds()
 position=0
 while True:
 
+	print("GOOMBAlalalalalalalalal")
+	tic()
 	reading_a=ribbons.ribbon_a.processed_cheap_single_touch_reading()
+	ptoc("GOO")
 	reading_b=ribbons.ribbon_b.processed_cheap_single_touch_reading()
 	reading=reading_a
+	ptoc("BAA")
 	if reading_b.gate:
 		reading=reading_b
 
+	ptoc("BRIN")
 	if reading.gate:
 		position=reading.value
+		ptoc("GEE")
 		value=note_to_pitch(int(position/pixels_per_note),*current_scale,)
 		ribbon=reading.ribbon
 		assert isinstance(ribbon,ribbons.Ribbon)
+		ptoc("GOW")
 		if ribbon.name=='b':#CHOO CHOO
 			value+=12#Up a full octave (12 semitones)
 		new_note=value
+		ptoc("GUU")
 		new_note=int(new_note)
 		remainder=value-new_note
 		if new_note != note:
+			ptoc("GER")
 			if note is None:
 				note_on(new_note)
 				pitch_bend(remainder)
@@ -158,15 +172,23 @@ while True:
 				else:
 					pitch_bend(value-note)
 		else:
+			ptoc("GLIM")
 			pitch_bend(remainder)
 	else:
 		if note is not None:
 			gate_off(note)
 			note=None
+	ptoc("GLOBBB")
 	if seconds()-last_midi_time>1/midi_messages_per_second:
 		last_midi_time=seconds()
+		ptoc("GLORF")#0.0057373
 		send_state()
+		ptoc("GLOOB")#0.0272217
 		neopixels.draw_pixel_colors(current_scale,position=position,pixels_per_note=pixels_per_note)
+		ptoc("NEFI")#0.0297852
 		neopixels.refresh()
+		ptoc("NEF")#0.0340576
 	if switch_scale_button_press_viewer.value:
 		switch_scale()
+		ptoc("NEEF")
+	ptoc("PRIMBO")
