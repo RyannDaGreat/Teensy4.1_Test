@@ -31,13 +31,18 @@ def jiggle_mod_wheel():
 			display.set_text("Jiggling Mod Wheel:\n%f\n\nPress metal to exit"%value)
 			transceiver.send(midi_mod_wheel_from_float(value),fast=False)
 
+
+use_pressure=False
 while True:
 	option=widgets.input_select(
-		['Play','Calibrate Ribbons','Calibrate Pressure','Brightness','Jiggle Mod Wheel'],
+		['Play','Play With Pressure','Calibrate Ribbons','Calibrate Pressure','Brightness','Jiggle Mod Wheel'],
 		prompt="Please choose new option\n    Old option: "+repr(config['weeble wobble wooble'])+'\n'+repr(config),
 		can_cancel=False,
 		must_confirm=True)
 	if option=='Play':
+		break
+	if option=='Play With Pressure':
+		use_pressure=True
 		break
 	elif option=='Brightness':
 		widgets.edit_config_int('neopixels brightness')
@@ -68,7 +73,8 @@ def send_state():
 		message+=midi_note_on(midi_message_state['note_on'])
 	if 'notes_off' in midi_message_state:
 		message+=b''.join([midi_note_off(note) for note in set(midi_message_state['notes_off'])])
-	message+=midi_mod_wheel_from_float(pressure.get_pressure())
+	if use_pressure:
+		message+=midi_mod_wheel_from_float(pressure.get_pressure())
 	transceiver.send(message,fast=fast)
 	midi_message_state={'notes_off':set()}
 
