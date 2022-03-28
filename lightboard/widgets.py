@@ -1,6 +1,7 @@
 import lightboard.buttons as buttons
 from lightboard.config import config
 from urp import *
+from collections import OrderedDict
 
 def input_yes_no(prompt):
 	import lightboard.display as display
@@ -64,6 +65,23 @@ def input_select(options,prompt='Please select an option:',can_cancel=False,must
 				display.set_menu(labels=prefix+visible_options,
 				                 index =len(prefix)+index%num_options_per_page,
 				                 colors=colors)
+
+def run_select_subroutine(options:OrderedDict,prompt='What do you want to do?',loop=True):
+	#Lets you select a subroutine, then runs it
+	#Options is an OrderedDict mapping strings to zero-argument callables
+
+	import lightboard.buttons as buttons
+	import lightboard.display as display
+
+	while True:
+		try:
+			selected_key=input_select(list(options),prompt=prompt,can_cancel=True,must_confirm=False,confirm_cancel=False)
+			subroutine=options[selected_key]
+			subroutine()
+			if not loop:
+				break
+		except KeyboardInterrupt:
+			break
 
 def edit_config_int(address,min_value=None,max_value=None,default=0):
 	import lightboard.display as display

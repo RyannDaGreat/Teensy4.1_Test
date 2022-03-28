@@ -1,10 +1,12 @@
 import board
 import busio
+from collections import OrderedDict
 from urp import *
 from linear_modules import *
 import lightboard.buttons as buttons
 import lightboard.neopixels as neopixels
 from lightboard.config import config
+
 
 calibration_weight_address='load_cell calibration weight'
 
@@ -229,7 +231,7 @@ def refresh():
 			if not SILENT_ERRORS:
 				import lightboard.display as display
 				print("Nano UART Error:",str(e))
-				display.set_text('+++++++++++++\n\n\n'+str(len(data))+'\n'+str(e))
+				display.set_text('+++NANO UART ERROR+++\n\n\n'+str(len(data))+'\n'+str(e))
 				error_blink()
 			return #Eager to give up if something goes wrong, which happens occasionally...don't sweat it when it does, we'll get another message in 1/80 seconds from now...
 		else:
@@ -320,63 +322,32 @@ def input_set_weight_per_pressure():
 def get_pressure():
 	return get_total_load_cell_weight()/get_weight_per_pressure()
 
-
 def show_calibration_menu():
-	import lightboard.display as display
-	import lightboard.buttons as buttons
 	import lightboard.widgets as widgets
 
-	test_cell         ='Test Load Cell'
-	test_all_cells    ='Test All Load Cells'
-	test_all_cells_raw='Test All Load Cells Raw'
-	calibrate_cell    ='Calibrate Load Cell'
-	set_weight        ='Set Calibration Weight'
-	tare_all_cells    ='Tare All Load Cells'
-	test_total_raw    ='Test Raw Total Weight'
-	do_test_pressure  ='Test Pressure'
-	set_pressure_coeff='Set Pressure Coefficient'
-
-
-	while True:
+	def calibrate_load_cells(testing=False):
 		try:
-			options = [
-				calibrate_cell,
-				test_cell,
-				test_all_cells,
-				test_all_cells_raw,
-				set_weight,
-				tare_all_cells,
-				test_total_raw,
-				do_test_pressure,
-				set_pressure_coeff,
-			]
-			task=widgets.input_select(options, prompt='What do you want to do?',can_cancel=True,must_confirm=False,confirm_cancel=False)
+			while True:
+				load_cell=widgets.input_select(load_cells,prompt='Calibration:\nSelect a load cell',
+				                               can_cancel=True,must_confirm=False,confirm_cancel=False)
+				if task==calibrate_cell:
+					load_cell.calibration.run_calibration(get_calibration_weight())
+				else:
+					assert task==test_cell
+					load_cell.calibration.run_test()
 		except KeyboardInterrupt:
-			break
-		if task==calibrate_cell or task==test_cell:
-			try:
-				while True:
-					load_cell=widgets.input_select(load_cells,prompt='Calibration:\nSelect a load cell',can_cancel=True,must_confirm=False,confirm_cancel=False)
-					if task==calibrate_cell:
-						load_cell.calibration.run_calibration(get_calibration_weight())
-					else:
-						assert task==test_cell
-						load_cell.calibration.run_test()
-			except KeyboardInterrupt:
-				pass
-		elif task==test_all_cells:
-			test_all_load_cells(raw=False)
-		elif task==test_all_cells_raw:
-			test_all_load_cells(raw=True)
-		elif task==set_weight:
-			input_set_calibration_weight()
-		elif task==tare_all_cells:
-			tare_all_load_cells()
-		elif task==test_total_raw:
-			test_total_load_cell_weight()
-		elif task==do_test_pressure:
-			test_pressure()
-		elif task==set_pressure_coeff:
-			input_set_weight_per_pressure()
-		else:
-			assert False,'Internal logical error: invalid task: '+repr(task)
+			pass
+
+	options = OrderedDict()
+
+	options['Test Load Cell'          ] = lambda: calibrate_load_cells(testing=True)
+	options['Test All Load Cells'     ] = lambda: test_all_load_cells(raw=False)
+	options['Test All Load Cells Raw' ] = lambda: test_all_load_cells(raw=True)
+	options['Calibrate Load Cell'     ] = lambda: calibrate_load_cells(testing=False)
+	options['Set Calibration Weight'  ] = input_set_calibration_weight
+	options['Tare All Load Cells'     ] = tare_all_load_cells
+	options['Test Raw Total Weight'   ] = test_total_load_cell_weight
+	options['Test Pressure'           ] = test_pressure
+	options['Set Pressure Coefficient'] = input_set_weight_per_pressure
+
+	widgets.run_select_subroutine(options)
