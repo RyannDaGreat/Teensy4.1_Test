@@ -14,6 +14,7 @@ uart =busio.UART(board.D29, board.D28, baudrate=115200, timeout=1000*(1/115200),
 
 uart_stopwatch=Stopwatch()
 REFRESH_INTERVAL=1/80 #How often should we poll the Nano? (It should output a message 80 times a second). Decreasing this means the weight sensors will be updated less frequently, but means other sensors will be updated faster
+# REFRESH_INTERVAL=1 #How often should we poll the Nano? (It should output a message 80 times a second). Decreasing this means the weight sensors will be updated less frequently, but means other sensors will be updated faster
 
 class LoadCellFilter:
 	def __init__(self):
@@ -231,8 +232,8 @@ def refresh():
 			if not SILENT_ERRORS:
 				import lightboard.display as display
 				print("Nano UART Error:",str(e))
-				display.set_text('+++NANO UART ERROR+++\n\n\n'+str(len(data))+'\n'+str(e))
 				error_blink()
+				display.set_text('+++NANO UART ERROR+++\n\n\n'+str(len(data))+'\n'+str(e))
 			return #Eager to give up if something goes wrong, which happens occasionally...don't sweat it when it does, we'll get another message in 1/80 seconds from now...
 		else:
 			try:
@@ -253,9 +254,10 @@ def refresh():
 				return
 	else:
 		if not SILENT_ERRORS:
+			# If you're getting this a lot, it probably means uart.readline() timed out...
 			import lightboard.display as display
 			error_blink()
-			display.set_text("XXXXXXXX")
+			display.set_text("NANO SENT NO DATA (EMPTY LINE)")
 
 def get_calibration_weight():
 	if calibration_weight_address not in config:
@@ -297,13 +299,12 @@ def test_pressure():
 	buttons.green_button_1.light=True
 	while not buttons.green_1_press_viewer.value:
 		# refresh()
-		tic()
+		timer=Stopwatch()
 		value=get_pressure()
 		# value=movmean(value)
 		# display.set_text('Testing pressure:\n\n%15.3f\n\nPress green button 1 to continue'%(value))
 		neopixels.display_line(0,min(neopixels.length,max(0,value*neopixels.length)))
-		display.set_text('Pressure:\n%1.4f\n\nPress metal to exit'%value)
-		ptoc()
+		display.set_text('Pressure:\n%1.4f\nTime: %1.4f\n\nPress metal to exit'%(value,timer.toc()))
 
 	buttons.green_button_1.light=False
 
