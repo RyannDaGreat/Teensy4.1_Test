@@ -36,7 +36,7 @@ except RuntimeError:
 if available:
 	# set the Power Amplifier level to -12 dBm since this test example is
 	# usually run with nRF24L01 transceivers in close proximity
-	nrf.pa_level = 0
+	nrf.pa_level = 0 #WHY IS THIS SO LOW????
 
 	nrf.data_rate=1#1:1mbps, 2:2mbps
 
