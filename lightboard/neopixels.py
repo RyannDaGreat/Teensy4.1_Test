@@ -128,7 +128,17 @@ def float_color_to_bytes(r,g,b):
 	b=clamp(int(b*256),0,255)
 	return bytes([g,r,b])
 
-def draw_pixel_colors(scale=major_scale,pixels_per_note=None,num_pixels=length,brightness=None,offset=0,position=None,extra_brightness=3,touch_color=(1,1,1)):
+def draw_pixel_colors(
+	scale            = major_scale,
+	pixels_per_note  = None,
+	num_pixels       = length,
+	brightness       = None,
+	offset           = 0,
+	position         = None,
+	extra_brightness = 3,
+	touch_color      = (1,1,1),
+	pixel_offset     = 0):
+	assert pixel_offset>=0, 'Due to the implementation, pixel_offset must be positive'
 	import math
 	if brightness is None:
 		brightness=1/config.get_with_default('neopixels brightness',default=20)
@@ -136,7 +146,6 @@ def draw_pixel_colors(scale=major_scale,pixels_per_note=None,num_pixels=length,b
 		pixels_per_note=config.get_with_default('neopixels pixels_per_note',default=3)
 
 	colors=[semitone_colors[semitone] for semitone in scale[:-1]]
-	# data=b''.join([float_color_to_bytes(r*brightness,g*brightness,b*brightness)*pixels_per_note for r,g,b in colors])
 	right_padding=bytes([0,0,0])*int(math.floor((pixels_per_note-1)/2))
 	left_padding =bytes([0,0,0])*int(math.ceil ((pixels_per_note-1)/2))
 	data=bytearray(b''.join([left_padding+float_color_to_bytes(r*brightness,g*brightness,b*brightness)+right_padding for r,g,b in colors]))
@@ -156,21 +165,6 @@ def draw_pixel_colors(scale=major_scale,pixels_per_note=None,num_pixels=length,b
 		if index<=len(data)-3:
 			#Make the individual pixel we're touching glow
 			data[index:index+3]=float_color_to_bytes(*touch_color)
+	data = data[3*pixel_offset:]
 	draw(data)
 	return data
-
-
-
-	# if position is not None:
-	# 	start_index=int(position/pixels_per_note)
-	# 	start_index=start_index%(len(scale)-1)
-	# 	r,g,b=colors[start_index]
-	# 	data[3*start_index*pixels_per_note:3*start_index*pixels_per_note+3*pixels_per_note]=float_color_to_bytes(r*brightness*extra_brightness,
-	# 	                                                                   g*brightness*extra_brightness,
-	# 	                                                                   b*brightness*extra_brightness)*pixels_per_note
-	# data=data*(num_pixels*3//len(data)+2)
-	# data=data[offset:][:3*num_pixels]
-	# if position is not None:
-	# 	index=int(position)*3
-	# 	if index<=len(data)-3:
-	# 		#M
