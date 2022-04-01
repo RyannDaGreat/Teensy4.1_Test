@@ -21,28 +21,6 @@ def jiggle_mod_wheel():
 			display.set_text("Jiggling Mod Wheel:\n%f\n\nPress metal to exit"%value)
 			transceiver.send(midi_mod_wheel_from_float(value),fast=False)
 
-use_pressure=False
-while True:
-	option=widgets.input_select(
-		['Play','Play With Pressure','Calibrate Ribbons','Calibrate Pressure','Brightness','Jiggle Mod Wheel'],
-		# prompt="Please choose new option\n    Old option: "+repr(config['weeble wobble wooble'])+'\n'+repr(config),
-		prompt='\nLightWave - Choose what to do:',
-		can_cancel=False,
-		must_confirm=True)
-	if option=='Play':
-		break
-	if option=='Play With Pressure':
-		use_pressure=True
-		break
-	elif option=='Brightness':
-		widgets.edit_config_int('neopixels brightness')
-	elif option=='Calibrate Ribbons':
-		ribbons.show_calibration_menu()
-	elif option=='Calibrate Pressure':
-		pressure.show_calibration_menu()
-	elif option=='Jiggle Mod Wheel':
-		jiggle_mod_wheel()
-
 #TODO: Make this into a function somehow so we can then autotune it
 note=None
 bend_range=48 #Make sure you set your synths in FL studio to accomadate this
@@ -118,8 +96,9 @@ def switch_scale():
 	current_scale_name=scale_names[scale_index]
 	display_state()
 
+use_pressure=False
 def display_state():
-	display.set_text("Scale: "+current_scale_name+"\nShift: %i"%semitone_shift)
+	display.set_text("Scale: "+current_scale_name+"\nShift: %i"%semitone_shift+'\n\nUsing Pressure: %s'%('Yes' if use_pressure else 'No')+'\n\nPress all buttons to exit')
 
 #SETTINGS START:
 pixels_per_note=3
@@ -142,90 +121,133 @@ last_midi_time=seconds()
 position=0
 shifted_position=position+pixel_offset
 temp_semitone_shift=0
+
 while True:
+	use_pressure=False
+	while True:
+		option=widgets.input_select(
+			['Play','Play With Pressure','Calibrate Ribbons','Calibrate Pressure','Brightness','Jiggle Mod Wheel'],
+			# prompt="Please choose new option\n    Old option: "+repr(config['weeble wobble wooble'])+'\n'+repr(config),
+			prompt='\nLightWave - Choose what to do:',
+			can_cancel=False,
+			must_confirm=True)
+		if option=='Play':
+			break
+		if option=='Play With Pressure':
+			use_pressure=True
+			break
+		elif option=='Brightness':
+			widgets.edit_config_int('neopixels brightness')
+		elif option=='Calibrate Ribbons':
+			ribbons.show_calibration_menu()
+		elif option=='Calibrate Pressure':
+			pressure.show_calibration_menu()
+		elif option=='Jiggle Mod Wheel':
+			jiggle_mod_wheel()
 
-	# reading_a=ribbons.ribbon_a.processed_cheap_single_touch_reading()
-	# reading_b=ribbons.ribbon_b.processed_cheap_single_touch_reading()
+	display_state()
 
-	# reading_a=ribbons.ribbon_a.processed_single_touch_reading()
-	reading_b=ribbons.ribbon_b.processed_single_touch_reading()
+	while True:
 
-	reading_a=ribbons.ribbon_a.processed_dual_touch_reading()
-	# reading_b=ribbons.ribbon_b.processed_dual_touch_reading()
+		# reading_a=ribbons.ribbon_a.processed_cheap_single_touch_reading()
+		# reading_b=ribbons.ribbon_b.processed_cheap_single_touch_reading()
 
-	temp_semitone_shift=0
+		# reading_a=ribbons.ribbon_a.processed_single_touch_reading()
+		reading_b=ribbons.ribbon_b.processed_single_touch_reading()
 
-	reading=reading_a
-	if reading_b.gate:
-		reading=reading_b
-	if reading==reading_a:
-		#Ribbon B is bad with dual touch....bad hardware?
+		reading_a=ribbons.ribbon_a.processed_dual_touch_reading()
+		# reading_b=ribbons.ribbon_b.processed_dual_touch_reading()
+
+		temp_semitone_shift=0
+
+		reading=reading_a
+		if reading_b.gate:
+			reading=reading_b
+		if reading==reading_a:
+			#Ribbon B is bad with dual touch....bad hardware?
+			if reading.gate:
+				ribbons.ProcessedDualTouchReading.TWO_TOUCH_THRESHOLD=0
+				# reading.value=reading.new
+				reading.value=reading.mid
+				delta = reading.new-reading.old
+				# delta = reading.new-position
+				if reading.num_fingers==2:
+					if abs(delta)<1.5: #Width of shift vs breaking to new note
+						# reading.value=reading.old
+						reading.value=position #Hold old position. TODO this totally breaks when pixel_offset!=0 because of the position+=pixel_offset line...
+						temp_semitone_shift=sign(delta)
+					else:
+						reading.value=reading.new
+
+		if not reading.gate: #Don't accidently shift key
+			if   buttons.green_3_press_viewer.value and buttons.green_button_1.value:
+				semitone_shift-=1
+				display_state()
+			elif buttons.green_1_press_viewer.value and buttons.green_button_3.value:
+				semitone_shift+=1
+				display_state()
+		buttons.green_3_press_viewer.value
+		buttons.green_1_press_viewer.value
+
+		if buttons.green_button_1.value:
+			temp_semitone_shift=1
+		if buttons.green_button_3.value:
+			temp_semitone_shift=-1
+
+
 		if reading.gate:
-			ribbons.ProcessedDualTouchReading.TWO_TOUCH_THRESHOLD=0
-			# reading.value=reading.new
-			reading.value=reading.mid
-			delta = reading.new-reading.old
-			# delta = reading.new-position
-			if reading.num_fingers==2:
-				if abs(delta)<1.5: #Width of shift vs breaking to new note
-					# reading.value=reading.old
-					reading.value=position #Hold old position. TODO this totally breaks when pixel_offset!=0 because of the position+=pixel_offset line...
-					temp_semitone_shift=sign(delta)
-				else:
-					reading.value=reading.new
-
-	if not reading.gate: #Don't accidently shift key
-		if   buttons.green_3_press_viewer.value and buttons.green_button_1.value:
-			semitone_shift-=1
-			display_state()
-		elif buttons.green_1_press_viewer.value and buttons.green_button_3.value:
-			semitone_shift+=1
-			display_state()
-	buttons.green_3_press_viewer.value
-	buttons.green_1_press_viewer.value
-
-	if buttons.green_button_1.value:
-		temp_semitone_shift=1
-	if buttons.green_button_3.value:
-		temp_semitone_shift=-1
-
-
-	if reading.gate:
-		position=reading.value
-		shifted_position=position+pixel_offset
-		value=note_to_pitch(int(shifted_position/pixels_per_note),*current_scale)
-		ribbon=reading.ribbon
-		assert isinstance(ribbon,ribbons.Ribbon)
-		if ribbon.name=='b':#CHOO CHOO
-			value+=12#Up a full octave (12 semitones)
-		new_note=value
-		new_note=int(new_note)
-		remainder=value-new_note
-		if new_note != note:
-			if note is None:
-				note_on(new_note)
-				pitch_bend(remainder)
-				note=new_note
-			else:
-				if abs(value-note)>bend_range:
+			position=reading.value
+			shifted_position=position+pixel_offset
+			value=note_to_pitch(int(shifted_position/pixels_per_note),*current_scale)
+			ribbon=reading.ribbon
+			assert isinstance(ribbon,ribbons.Ribbon)
+			if ribbon.name=='b':#CHOO CHOO
+				value+=12#Up a full octave (12 semitones)
+			new_note=value
+			new_note=int(new_note)
+			remainder=value-new_note
+			if new_note != note:
+				if note is None:
 					note_on(new_note)
-					note_off(note)
 					pitch_bend(remainder)
 					note=new_note
 				else:
-					pitch_bend(value-note)
+					if abs(value-note)>bend_range:
+						note_on(new_note)
+						note_off(note)
+						pitch_bend(remainder)
+						note=new_note
+					else:
+						pitch_bend(value-note)
+			else:
+				pitch_bend(remainder)
 		else:
-			pitch_bend(remainder)
-	else:
-		if note is not None:
-			gate_off(note)
-			note=None
-	if seconds()-last_midi_time>1/midi_messages_per_second:
-		last_midi_time=seconds()
-		send_state()
-		neopixels.draw_pixel_colors(current_scale,position=shifted_position,pixels_per_note=pixels_per_note,pixel_offset=pixel_offset)
-		neopixels.refresh()
+			if note is not None:
+				gate_off(note)
+				note=None
+		if seconds()-last_midi_time>1/midi_messages_per_second:
+			last_midi_time=seconds()
+			send_state()
+			neopixels.draw_pixel_colors(current_scale,position=shifted_position,pixels_per_note=pixels_per_note,pixel_offset=pixel_offset)
+			neopixels.refresh()
+			
+		if switch_scale_button_press_viewer.value:
+			switch_scale()
+
+		if buttons.green_button_1.value and buttons.green_button_3.value and buttons.metal_button.value:
+			#Reset all presses
+			buttons.green_1_press_viewer.value
+			buttons.green_2_press_viewer.value
+			buttons.green_3_press_viewer.value
+			buttons.metal_press_viewer.value
+
+			try:
+				note_off(note);send_state()
+			except:
+				pass
+			neopixels.turn_off()
+
+			display.set_text("Entering main menu")
+			sleep(.25)
+			break
 		
-	if switch_scale_button_press_viewer.value:
-		switch_scale()
-	
