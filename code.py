@@ -92,6 +92,7 @@ def note_off(note):
 			del midi_message_state['note_on']
 
 def pitch_bend(semitones):
+	semitones+=temp_semitone_shift
 	midi_message_state['pitch_bend']=semitones
 
 buttons.set_green_button_lights(0,0,0,0)
@@ -133,6 +134,7 @@ semitone_shift=0
 pixel_offset-=pixels_per_note
 last_midi_time=seconds()
 position=0
+temp_semitone_shift=0
 while True:
 
 	# reading_a=ribbons.ribbon_a.processed_cheap_single_touch_reading()
@@ -150,6 +152,14 @@ while True:
 		reading=reading_b
 	if reading.gate:
 		reading.value=reading.new
+		temp_semitone_shift=0
+		delta = reading.new-reading.old
+		if reading.num_fingers==2 and abs(delta)<5:
+			reading.value=reading.old
+			temp_semitone_shift=sign(delta)
+			# print("GOOP")
+		# reading.value=reading.mid
+
 
 	if reading.gate:
 		position=reading.value
