@@ -502,17 +502,17 @@ class ProcessedDualTouchReading:
 				ribbon.previous_dual_old=mid
 			old,new=sorted([bot,top],key=lambda pos:abs(pos-ribbon.previous_dual_old))
 
-			old_num_fingers=ribbon.dual_num_fingers
-			changed_num_fingers=False
+			# old_num_fingers=ribbon.dual_num_fingers
+			# changed_num_fingers=False
 			if not previous_gate:
-				 ribbon.dual_num_fingers = 2 if delta>self.TWO_TOUCH_THRESHOLD else 1
-				 changed_num_fingers=old_num_fingers!=ribbon.dual_num_fingers
+				ribbon.dual_num_fingers = 2 if delta>self.TWO_TOUCH_THRESHOLD else 1
+				# changed_num_fingers=old_num_fingers!=ribbon.dual_num_fingers
 			elif ribbon.dual_num_fingers == 1 and delta>self.TWO_TOUCH_THRESHOLD+self.TWO_TOUCH_THRESHOLD_SLACK:
-				 ribbon.dual_num_fingers = 2
-				 changed_num_fingers=old_num_fingers!=ribbon.dual_num_fingers
+				ribbon.dual_num_fingers = 2
+				# changed_num_fingers=old_num_fingers!=ribbon.dual_num_fingers
 			elif ribbon.dual_num_fingers == 2 and delta<self.TWO_TOUCH_THRESHOLD-self.TWO_TOUCH_THRESHOLD_SLACK:
-				 ribbon.dual_num_fingers = 1
-				 changed_num_fingers=old_num_fingers!=ribbon.dual_num_fingers
+				ribbon.dual_num_fingers = 1
+				# changed_num_fingers=old_num_fingers!=ribbon.dual_num_fingers
 			self.num_fingers=ribbon.dual_num_fingers
 
 			# if changed_num_fingers:
