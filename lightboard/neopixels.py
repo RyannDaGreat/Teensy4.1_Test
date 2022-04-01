@@ -165,6 +165,6 @@ def draw_pixel_colors(
 		if index<=len(data)-3:
 			#Make the individual pixel we're touching glow
 			data[index:index+3]=float_color_to_bytes(*touch_color)
-	data = data[3*pixel_offset:]
+	data = data[3*pixel_offset:]+data[:3*pixel_offset]
 	draw(data)
 	return data
