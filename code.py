@@ -1,3 +1,5 @@
+#TODO: It appears that the pressure calibration tare can CHANGE randomly...even in the middle of playing then exiting....investigate!!
+
 from lightboard.config import config
 from linear_modules import *
 from urp import *
@@ -121,6 +123,9 @@ last_midi_time=seconds()
 position=0
 shifted_position=position+pixel_offset
 temp_semitone_shift=0
+temp_slide_value_shift=0
+
+gate_timer=Stopwatch()
 
 while True:
 	use_pressure=False
@@ -196,9 +201,19 @@ while True:
 
 
 		if reading.gate:
+			gate_timer.tic()
 			position=reading.value
 			shifted_position=position+pixel_offset
-			value=note_to_pitch(int(shifted_position/pixels_per_note),*current_scale)
+			value=shifted_position/pixels_per_note
+			if buttons.green_button_2.value: #When holding down the middle button, bend the notes...
+				if not temp_slide_value_shift:
+					temp_slide_value_shift=int(value)-value #This is so the note doesn't change as soon as we press button 2
+				value+=temp_slide_value_shift
+			else:
+				temp_slide_value_shift=0
+				value=int(value)
+			
+			value=note_to_pitch(value,*current_scale)
 			ribbon=reading.ribbon
 			assert isinstance(ribbon,ribbons.Ribbon)
 			if ribbon.name=='b':#CHOO CHOO
@@ -231,7 +246,8 @@ while True:
 			neopixels.draw_pixel_colors(current_scale,position=shifted_position,pixels_per_note=pixels_per_note,pixel_offset=pixel_offset)
 			neopixels.refresh()
 			
-		if switch_scale_button_press_viewer.value:
+		if switch_scale_button_press_viewer.value and gate_timer.toc()>1/2 and not reading.gate:
+			#Must wait 1/2 second after playing to change the scale
 			switch_scale()
 
 		if buttons.green_button_1.value and buttons.green_button_3.value and buttons.metal_button.value:
