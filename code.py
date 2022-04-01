@@ -145,7 +145,7 @@ while True:
 	if reading_b.gate:
 		reading=reading_b
 	if reading.gate:
-		reading.value=reading.top
+		reading.value=reading.new
 
 	if reading.gate:
 		position=reading.value

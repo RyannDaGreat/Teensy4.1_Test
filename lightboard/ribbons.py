@@ -450,7 +450,7 @@ class DualTouchReading:
 		self.ribbon.ads.gain=ads_gain_dual
 
 class ProcessedDualTouchReading:
-	__slots__=['gate','bot','top','middle']
+	__slots__=['gate','bot','top','mid','num_fingers','old','new']
 
 	DELTA_THRESHOLD=-4 # A distance, measured in neopixel widths, that the two dual touches can be apart from one another before registering as not being touched. (This is because, as it turns out, it can sometimes take more than one sample for dual touch values to go all the way back to the top after releasing your finger from the ribbon)
 	#You want to calibrate DELTA_THRESHOLD such that it's high enough to keep good readings once you release your finger, but low enough that it doesn't require pressing down too hard to activate. 
@@ -458,7 +458,7 @@ class ProcessedDualTouchReading:
 	#DELTA_THRESHOLD might need to be changed if you calibrate with a pencil eraser instead of your fingertip, because the pencil eraser is a narrower touch area etc.
 	#You should always calibrate using your finger for this reason...
 
-	TWO_TOUCH_THRESHOLD=2#A distance, measured in neopixel widths, that the dual readings must be apart from each other to register as 
+	TWO_TOUCH_THRESHOLD=1#A distance, measured in neopixel widths, that the dual readings must be apart from each other to register as 
 	TWO_TOUCH_THRESHOLD_SLACK=.05 #A bit of hysterisis used here...like a tether. Basically, to prevent flickering on the bonudary, to switch between two touch and one touch you must move this much distance.
 
 	def __init__(self,ribbon,blink=False):
@@ -497,6 +497,11 @@ class ProcessedDualTouchReading:
 			mid=ribbon.cheap_single_touch_to_neopixel_calibration(mid)
 			delta=top-bot
 
+			#The older and newer dual touch positions. Only different when num_fingers>1
+			if not hasattr(ribbon,'previous_dual_old'):
+				ribbon.previous_dual_old=mid
+			old,new=sorted([bot,top],key=lambda pos:abs(pos-ribbon.previous_dual_old))
+
 			old_num_fingers=ribbon.dual_num_fingers
 			changed_num_fingers=False
 			if not previous_gate:
@@ -527,6 +532,9 @@ class ProcessedDualTouchReading:
 				self.top=ribbon.dual_top_filter(top)
 				self.bot=ribbon.dual_bot_filter(bot)
 				self.mid=mid
+				self.old=old
+				self.new=new
+				ribbon.previous_dual_old=old
 
 class ProcessedSingleTouchReading:
 	def __init__(self,ribbon,blink=False):
