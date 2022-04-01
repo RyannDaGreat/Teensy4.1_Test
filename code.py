@@ -104,36 +104,42 @@ scales=[major_scale,
         blues_scale,
         chromatic_scale]
 
-scale_names=['Major Scale',
-             'Natural Minor Scale',
-             'Harmonic Minor Scale',
-             'Blues Scale',
-             'Chromatic Scale']
+scale_names=['Major',
+             'Natural Minor',
+             'Harmonic Minor',
+             'Blues',
+             'Chromatic']
 
 def switch_scale():
-	global current_scale
+	global current_scale, current_scale_name
 	scale_index=(scales.index(current_scale)+1)%len(scales)
 	current_scale=scales[scale_index]
-	display.set_text("Using:\n"+scale_names[scale_index])
+	current_scale_name=scale_names[scale_index]
+	display_state()
+
+def display_state():
+	display.set_text("Scale: "+current_scale_name+"\nShift: %i"%semitone_shift)
+
+#SETTINGS START:
+pixels_per_note=3
+pixel_offset=12-pixels_per_note#The number of pixels below the start of the first note
+semitone_shift=0
+#SETTINGS END
+
 
 switch_scale_button_index=1
 switch_scale_button_press_viewer=buttons.green_press_viewers[switch_scale_button_index]
 buttons.green_buttons[switch_scale_button_index].light=True
 
-current_scale=chromatic_scale
+current_scale     =scales     [-1]
+current_scale_name=scale_names[-1]
 switch_scale()
 neopixels.draw_pixel_colors(current_scale)
 neopixels.refresh()
 
-#SETTINGS START:
-pixels_per_note=3
-pixel_offset=12#The number of pixels below the start of the first note
-semitone_shift=0
-#SETTINGS END
-
-pixel_offset-=pixels_per_note
 last_midi_time=seconds()
 position=0
+shifted_position=position+pixel_offset
 temp_semitone_shift=0
 while True:
 
@@ -141,30 +147,52 @@ while True:
 	# reading_b=ribbons.ribbon_b.processed_cheap_single_touch_reading()
 
 	# reading_a=ribbons.ribbon_a.processed_single_touch_reading()
-	# reading_b=ribbons.ribbon_b.processed_single_touch_reading()
+	reading_b=ribbons.ribbon_b.processed_single_touch_reading()
 
 	reading_a=ribbons.ribbon_a.processed_dual_touch_reading()
-	reading_b=ribbons.ribbon_b.processed_dual_touch_reading()
+	# reading_b=ribbons.ribbon_b.processed_dual_touch_reading()
 
+	temp_semitone_shift=0
 
 	reading=reading_a
 	if reading_b.gate:
 		reading=reading_b
-	if reading.gate:
-		reading.value=reading.new
-		temp_semitone_shift=0
-		delta = reading.new-reading.old
-		if reading.num_fingers==2 and abs(delta)<5:
-			reading.value=reading.old
-			temp_semitone_shift=sign(delta)
-			# print("GOOP")
-		# reading.value=reading.mid
+	if reading==reading_a:
+		#Ribbon B is bad with dual touch....bad hardware?
+		if reading.gate:
+			ribbons.ProcessedDualTouchReading.TWO_TOUCH_THRESHOLD=0
+			# reading.value=reading.new
+			reading.value=reading.mid
+			delta = reading.new-reading.old
+			# delta = reading.new-position
+			if reading.num_fingers==2:
+				if abs(delta)<1.5: #Width of shift vs breaking to new note
+					# reading.value=reading.old
+					reading.value=position #Hold old position. TODO this totally breaks when pixel_offset!=0 because of the position+=pixel_offset line...
+					temp_semitone_shift=sign(delta)
+				else:
+					reading.value=reading.new
+
+	if not reading.gate: #Don't accidently shift key
+		if   buttons.green_3_press_viewer.value and buttons.green_button_1.value:
+			semitone_shift-=1
+			display_state()
+		elif buttons.green_1_press_viewer.value and buttons.green_button_3.value:
+			semitone_shift+=1
+			display_state()
+	buttons.green_3_press_viewer.value
+	buttons.green_1_press_viewer.value
+
+	if buttons.green_button_1.value:
+		temp_semitone_shift=1
+	if buttons.green_button_3.value:
+		temp_semitone_shift=-1
 
 
 	if reading.gate:
 		position=reading.value
-		position+=pixel_offset
-		value=note_to_pitch(int(position/pixels_per_note),*current_scale)
+		shifted_position=position+pixel_offset
+		value=note_to_pitch(int(shifted_position/pixels_per_note),*current_scale)
 		ribbon=reading.ribbon
 		assert isinstance(ribbon,ribbons.Ribbon)
 		if ribbon.name=='b':#CHOO CHOO
@@ -194,12 +222,9 @@ while True:
 	if seconds()-last_midi_time>1/midi_messages_per_second:
 		last_midi_time=seconds()
 		send_state()
-		neopixels.draw_pixel_colors(current_scale,position=position,pixels_per_note=pixels_per_note,pixel_offset=pixel_offset)
+		neopixels.draw_pixel_colors(current_scale,position=shifted_position,pixels_per_note=pixels_per_note,pixel_offset=pixel_offset)
 		neopixels.refresh()
 		
 	if switch_scale_button_press_viewer.value:
 		switch_scale()
-	if buttons.green_1_press_viewer.value:
-		semitone_shift+=1
-	if buttons.green_3_press_viewer.value:
-		semitone_shift-=1
+	
