@@ -54,7 +54,11 @@ midi_messages_per_second=60
 midi_message_state={'notes_off':set()}
 def send_state():
 	global midi_message_state
-	print(midi_message_state)
+
+	#Debug
+	if len(midi_message_state)>1 or midi_message_state['notes_off']: #Don't spam when theres nothing worth seeing
+		print(midi_message_state)
+	
 	message=b''
 	if 'pitch_bend' in midi_message_state:
 		message+=midi_pitch_bend_from_semitones(midi_message_state['pitch_bend'],-bend_range,bend_range)
