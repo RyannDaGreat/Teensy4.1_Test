@@ -25,7 +25,8 @@ use_pressure=False
 while True:
 	option=widgets.input_select(
 		['Play','Play With Pressure','Calibrate Ribbons','Calibrate Pressure','Brightness','Jiggle Mod Wheel'],
-		prompt="Please choose new option\n    Old option: "+repr(config['weeble wobble wooble'])+'\n'+repr(config),
+		# prompt="Please choose new option\n    Old option: "+repr(config['weeble wobble wooble'])+'\n'+repr(config),
+		prompt='\nLightWave - Choose what to do:',
 		can_cancel=False,
 		must_confirm=True)
 	if option=='Play':

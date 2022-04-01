@@ -19,7 +19,7 @@ spi = board.SPI()
 tft_cs = board.D10
 tft_dc = board.D9
 
-ROTATION=0#0,90,180,270
+ROTATION=180#0,90,180,270
 WIDTH=320
 HEIGHT=240
 if not ROTATION%180:
