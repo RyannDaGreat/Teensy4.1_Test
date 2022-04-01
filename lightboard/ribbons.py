@@ -607,11 +607,11 @@ def test_ribbon_dual_touch(ribbon):
 	import lightboard.buttons as buttons
 	import lightboard.display as display
 
-	display.set_text('Running raw uart test\nPress metal button\nto end this test\n\nThe green buttons show\ncheap_gate and single_gate\n(They\'re just for display)')
+	display.set_text('Running dual-touch test on\nRibbon %s\n\nWhen yellow dot, one touch\nWhen white dot, two touches\n\nPress metal to exit'%ribbon.name)
 	buttons.set_green_button_lights(0,0,0,0)
 	buttons.metal_button.color=(255,0,0)
 
-	while True:
+	while not buttons.metal_press_viewer.value:
 		dual  =ribbon.processed_dual_touch_reading()
 
 		if not dual.gate:
@@ -623,16 +623,8 @@ def test_ribbon_dual_touch(ribbon):
 		neopixels.draw_dot(dual.mid, 128,128,128*(dual.num_fingers-1))
 		neopixels.refresh()
 
-
-		# message = '%s %i %i %.5f %.5f %.5f %.5f'%(ribbon.name, int(c_gate), int(s_gate), c_raw_value, raw_value, raw_a, raw_b)
-		# print(message)
-
-		# buttons.set_green_button_lights(c_gate,s_gate,0,0)
-
-		# if buttons.metal_press_viewer.value:
-		# 	buttons.metal_button.color=(0,0,0)
-		# 	display.set_text('Running raw uart test:\nDone!')
-		# 	break
+	buttons.metal_button.color=(0,0,0)
+	display.set_text('test_ribbon_dual_touch: Done!')
 
 def show_calibration_menu():
 	import lightboard.widgets as widgets
