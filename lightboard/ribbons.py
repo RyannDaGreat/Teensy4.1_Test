@@ -603,6 +603,37 @@ def test_ribbon_raw_uart(ribbon):
 			display.set_text('Running raw uart test:\nDone!')
 			break
 
+def test_ribbon_dual_touch(ribbon):
+	import lightboard.buttons as buttons
+	import lightboard.display as display
+
+	display.set_text('Running raw uart test\nPress metal button\nto end this test\n\nThe green buttons show\ncheap_gate and single_gate\n(They\'re just for display)')
+	buttons.set_green_button_lights(0,0,0,0)
+	buttons.metal_button.color=(255,0,0)
+
+	while True:
+		dual  =ribbon.processed_dual_touch_reading()
+
+		if not dual.gate:
+			continue
+
+		neopixels.draw_all_off()
+		neopixels.draw_dot(dual.top, 64,0,128)
+		neopixels.draw_dot(dual.bot, 128,0,64)
+		neopixels.draw_dot(dual.mid, 128,128,128*(dual.num_fingers-1))
+		neopixels.refresh()
+
+
+		# message = '%s %i %i %.5f %.5f %.5f %.5f'%(ribbon.name, int(c_gate), int(s_gate), c_raw_value, raw_value, raw_a, raw_b)
+		# print(message)
+
+		# buttons.set_green_button_lights(c_gate,s_gate,0,0)
+
+		# if buttons.metal_press_viewer.value:
+		# 	buttons.metal_button.color=(0,0,0)
+		# 	display.set_text('Running raw uart test:\nDone!')
+		# 	break
+
 def show_calibration_menu():
 	import lightboard.widgets as widgets
 
@@ -614,6 +645,8 @@ def show_calibration_menu():
 	options['Smooth Demo B'  ] = ribbon_b.test_smooth_demo
 	options['Raw UART Demo A'] = lambda: test_ribbon_raw_uart(ribbon_a)
 	options['Raw UART Demo B'] = lambda: test_ribbon_raw_uart(ribbon_b)
+	options['Dual Touch Demo A'] = lambda: test_ribbon_dual_touch(ribbon_a)
+	options['Dual Touch Demo B'] = lambda: test_ribbon_dual_touch(ribbon_b)
 
 	widgets.run_select_subroutine(options)
 
