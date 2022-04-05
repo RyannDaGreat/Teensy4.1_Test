@@ -150,9 +150,11 @@ def tare_all_load_cells():
 
 	test_all_load_cells()
 
-	if not widgets.input_yes_no('Keep this calibration?'):
+	if widgets.input_yes_no('Keep this calibration?'):
 		for load_cell in load_cells:
-			load_cell.save()
+			load_cell.calibration.save()
+		display.set_text("Saved!")
+		sleep(.25)
 
 class LoadCell:
 	def __init__(self,name:str):
