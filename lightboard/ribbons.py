@@ -115,7 +115,7 @@ class Ribbon:
 		self.dual_bot_filter=NoiseFilter(moving_average_length=dual_filter_moving_average_length,soft_tether_size=dual_filter_soft_tether_size,tether_size=dual_filter_tether_size)
 		self.dual_top_filter=NoiseFilter(moving_average_length=dual_filter_moving_average_length,soft_tether_size=dual_filter_soft_tether_size,tether_size=dual_filter_tether_size)
 
-		self.cheap_single_filter=NoiseFilter(moving_average_length=3,soft_tether_size=.3,tether_size=.01,moving_median_length=3)
+		self.cheap_single_filter=NoiseFilter(moving_average_length=1,soft_tether_size=.3,tether_size=.01,moving_median_length=1)
 
 
 	@property
@@ -450,7 +450,7 @@ class DualTouchReading:
 		self.ribbon.ads.gain=ads_gain_dual
 
 class ProcessedDualTouchReading:
-	__slots__=['gate','bot','top','mid','num_fingers','old','new']
+	__slots__=['gate','bot','top','mid','num_fingers','old','new','raw_bot','raw_top','raw_mid']
 
 	DELTA_THRESHOLD=-4 # A distance, measured in neopixel widths, that the two dual touches can be apart from one another before registering as not being touched. (This is because, as it turns out, it can sometimes take more than one sample for dual touch values to go all the way back to the top after releasing your finger from the ribbon)
 	#You want to calibrate DELTA_THRESHOLD such that it's high enough to keep good readings once you release your finger, but low enough that it doesn't require pressing down too hard to activate. 
@@ -529,9 +529,12 @@ class ProcessedDualTouchReading:
 				if self.num_fingers==1:
 					bot=top=sorted((top,bot,mid))[1]
 
-				self.top=ribbon.dual_top_filter(top)
-				self.bot=ribbon.dual_bot_filter(bot)
-				self.mid=mid
+				self.raw_top=top
+				self.raw_bot=bot
+				self.raw_mid=mid
+				self.top=ribbon.dual_top_filter    (top)
+				self.bot=ribbon.dual_bot_filter    (bot)
+				self.mid=ribbon.cheap_single_filter(mid)
 				self.old=old
 				self.new=new
 				ribbon.previous_dual_old=old
