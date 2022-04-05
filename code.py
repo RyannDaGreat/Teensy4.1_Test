@@ -157,6 +157,7 @@ switch_scale()
 neopixels.draw_pixel_colors(current_scale)
 neopixels.refresh()
 
+
 while True:
 	use_pressure=False
 	while True:
@@ -180,6 +181,11 @@ while True:
 		elif option=='Jiggle Mod Wheel':
 			jiggle_mod_wheel()
 
+
+	ribbons.ribbon_a.prev_gate=False
+	ribbons.ribbon_b.prev_gate=False
+	current_ribbon=None
+
 	display_state()
 
 	while True:
@@ -195,11 +201,24 @@ while True:
 
 		temp_semitone_shift=0
 
-		reading=reading_a
-		if reading_b.gate:
-			reading=reading_b
-		
-		if reading.gate:
+		#Coordinate which ribbon to use based on which one was last pressed
+		if not reading_a.gate and not reading_b.gate:
+			current_ribbon=None
+			gate=False
+		else:
+			gate=True
+			if current_ribbon:
+				if reading_a.gate and (not ribbons.ribbon_a.prev_gate or not reading_b.gate): current_ribbon=ribbons.ribbon_a
+				if reading_b.gate and (not ribbons.ribbon_b.prev_gate or not reading_a.gate): current_ribbon=ribbons.ribbon_b
+			else:
+				if reading_a.gate: current_ribbon=ribbons.ribbon_a
+				if reading_b.gate: current_ribbon=ribbons.ribbon_b
+			if current_ribbon==ribbons.ribbon_a: reading = reading_a
+			if current_ribbon==ribbons.ribbon_b: reading = reading_b
+			ribbons.ribbon_a.prev_gate=reading_a.gate
+			ribbons.ribbon_b.prev_gate=reading_b.gate
+
+		if gate:
 			# ribbons.ProcessedDualTouchReading.TWO_TOUCH_THRESHOLD=0
 			# reading.value=reading.new
 			reading.value=reading.mid
@@ -214,7 +233,7 @@ while True:
 				else:
 					reading.value=reading.new
 
-		if not reading.gate and not buttons.metal_button.value: #Don't accidently shift key
+		if not gate and not buttons.metal_button.value: #Don't accidently shift key
 			if   buttons.green_3_press_viewer.value and buttons.green_button_1.value:
 				semitone_shift-=1
 				display_state()
@@ -230,7 +249,7 @@ while True:
 			temp_semitone_shift=-1
 
 
-		if reading.gate:
+		if gate:
 			gate_timer.tic()
 			position=reading.value
 			shifted_position=position+get_pixel_offset()
@@ -277,7 +296,7 @@ while True:
 			neopixels.draw_pixel_colors(current_scale,position=shifted_position,pixels_per_note=pixels_per_note,pixel_offset=get_pixel_offset())
 			neopixels.refresh()
 
-		if buttons.metal_button.value and buttons.green_button_1.value and reading.gate:
+		if buttons.metal_button.value and buttons.green_button_1.value and gate:
 			#Press metal+button 1 and drag on ribbon to drag pixels
 			if pixel_offset_grab_pos is None:
 				pixel_offset_grab_pos=floor(position)
@@ -286,7 +305,7 @@ while True:
 			pixel_offset=get_pixel_offset()
 			pixel_offset_grab_pos=None
 			
-		# if not buttons.metal_button.value and switch_scale_button_press_viewer.value and gate_timer.toc()>1/2 and not reading.gate:
+		# if not buttons.metal_button.value and switch_scale_button_press_viewer.value and gate_timer.toc()>1/2 and not gate:
 		if buttons.metal_button.value and switch_scale_button_press_viewer.value:
 			#Must wait 1/2 second after playing to change the scale
 			switch_scale()

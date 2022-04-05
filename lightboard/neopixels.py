@@ -159,8 +159,6 @@ def draw_pixel_colors(
 		note_index=floor(position/pixels_per_note)
 		note_index=note_index%(len(scale)-1)
 		r,g,b=colors[note_index]
-		if position<0:
-			r,g,b=1,1,0
 
 		color_bytes = float_color_to_bytes(
 			r*brightness*extra_brightness,
