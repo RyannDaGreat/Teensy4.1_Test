@@ -92,6 +92,21 @@ scale_names=['Major',
              'Blues',
              'Chromatic']
 
+key_names=[
+	'C',
+	'C# Db',
+	'D',
+	'D# Eb',
+	'E',
+	'F',
+	'F# Gb',
+	'G',
+	'G# Ab',
+	'A',
+	'A# Bb',
+	'B',
+]
+
 def switch_scale():
 	global current_scale, current_scale_name
 	scale_index=(scales.index(current_scale)+1)%len(scales)
@@ -101,7 +116,11 @@ def switch_scale():
 
 use_pressure=False
 def display_state():
-	display.set_text("Scale: "+current_scale_name+"\nShift: %i"%semitone_shift+"\n\nPixel Offset: %i"%get_pixel_offset()+'\n\nUsing Pressure: %s'%('Yes' if use_pressure else 'No')+'\n\nPress all buttons to exit')
+	display.set_text("Scale: "+current_scale_name+\
+		"\nKey: %i  aka  %s %i"%(semitone_shift,key_names[semitone_shift%12],semitone_shift//12)+\
+		"\n\nPixel Offset: %i"%get_pixel_offset()+\
+		'\n\nUsing Pressure: %s'%('Yes' if use_pressure else 'No')+\
+		'\n\nPress all buttons to exit')
 
 #SETTINGS START:
 pixels_per_note=3
@@ -142,14 +161,14 @@ while True:
 	use_pressure=False
 	while True:
 		option=widgets.input_select(
-			['Play','Play With Pressure','Calibrate Ribbons','Calibrate Pressure','Brightness','Jiggle Mod Wheel'],
+			['Play','Play Without Pressure','Calibrate Ribbons','Calibrate Pressure','Brightness','Jiggle Mod Wheel'],
 			# prompt="Please choose new option\n    Old option: "+repr(config['weeble wobble wooble'])+'\n'+repr(config),
 			prompt='\nLightWave - Choose what to do:',
 			can_cancel=False,
-			must_confirm=True)
-		if option=='Play':
+			must_confirm=False)
+		if option=='Play Without Pressure':
 			break
-		if option=='Play With Pressure':
+		if option=='Play':
 			use_pressure=True
 			break
 		elif option=='Brightness':
@@ -169,32 +188,31 @@ while True:
 		# reading_b=ribbons.ribbon_b.processed_cheap_single_touch_reading()
 
 		# reading_a=ribbons.ribbon_a.processed_single_touch_reading()
-		reading_b=ribbons.ribbon_b.processed_single_touch_reading()
+		# reading_b=ribbons.ribbon_b.processed_single_touch_reading()
 
 		reading_a=ribbons.ribbon_a.processed_dual_touch_reading()
-		# reading_b=ribbons.ribbon_b.processed_dual_touch_reading()
+		reading_b=ribbons.ribbon_b.processed_dual_touch_reading()
 
 		temp_semitone_shift=0
 
 		reading=reading_a
 		if reading_b.gate:
 			reading=reading_b
-		if reading==reading_a:
-			#Ribbon B is bad with dual touch....bad hardware?
-			if reading.gate:
-				# ribbons.ProcessedDualTouchReading.TWO_TOUCH_THRESHOLD=0
-				# reading.value=reading.new
-				reading.value=reading.mid
-				delta = reading.new-reading.old
-				# delta = reading.new-position
-				if reading.num_fingers==2:
+		
+		if reading.gate:
+			# ribbons.ProcessedDualTouchReading.TWO_TOUCH_THRESHOLD=0
+			# reading.value=reading.new
+			reading.value=reading.mid
+			delta = reading.new-reading.old
+			# delta = reading.new-position
+			if reading.num_fingers==2:
 
-					if 0 and abs(delta)<3: #Width of shift vs breaking to new note
-						# reading.value=reading.old
-						reading.value=position #Hold old position. TODO this totally breaks when pixel_offset!=0 because of the position+=pixel_offset line...
-						temp_semitone_shift=sign(delta)
-					else:
-						reading.value=reading.new
+				if 0 and abs(delta)<3: #Width of shift vs breaking to new note
+					# reading.value=reading.old
+					reading.value=position #Hold old position. TODO this totally breaks when pixel_offset!=0 because of the position+=pixel_offset line...
+					temp_semitone_shift=sign(delta)
+				else:
+					reading.value=reading.new
 
 		if not reading.gate and not buttons.metal_button.value: #Don't accidently shift key
 			if   buttons.green_3_press_viewer.value and buttons.green_button_1.value:
@@ -268,7 +286,8 @@ while True:
 			pixel_offset=get_pixel_offset()
 			pixel_offset_grab_pos=None
 			
-		if not buttons.metal_button.value and switch_scale_button_press_viewer.value and gate_timer.toc()>1/2 and not reading.gate:
+		# if not buttons.metal_button.value and switch_scale_button_press_viewer.value and gate_timer.toc()>1/2 and not reading.gate:
+		if buttons.metal_button.value and switch_scale_button_press_viewer.value:
 			#Must wait 1/2 second after playing to change the scale
 			switch_scale()
 
