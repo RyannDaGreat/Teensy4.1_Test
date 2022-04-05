@@ -11,6 +11,7 @@ import lightboard.ribbons as ribbons
 import lightboard.transceiver as transceiver
 import lightboard.widgets as widgets
 import math
+
 attempt_to_mount()
 
 def jiggle_mod_wheel():
@@ -37,8 +38,8 @@ def send_state():
 	global midi_message_state
 
 	#Debug
-	if len(midi_message_state)>1 or midi_message_state['notes_off']: #Don't spam when theres nothing worth seeing
-		print(midi_message_state)
+	# if len(midi_message_state)>1 or midi_message_state['notes_off']: #Don't spam when theres nothing worth seeing
+		# print(midi_message_state)
 	
 	message=b''
 	if 'pitch_bend' in midi_message_state:
@@ -100,32 +101,42 @@ def switch_scale():
 
 use_pressure=False
 def display_state():
-	display.set_text("Scale: "+current_scale_name+"\nShift: %i"%semitone_shift+'\n\nUsing Pressure: %s'%('Yes' if use_pressure else 'No')+'\n\nPress all buttons to exit')
+	display.set_text("Scale: "+current_scale_name+"\nShift: %i"%semitone_shift+"\n\nPixel Offset: %i"%get_pixel_offset()+'\n\nUsing Pressure: %s'%('Yes' if use_pressure else 'No')+'\n\nPress all buttons to exit')
 
 #SETTINGS START:
 pixels_per_note=3
 pixel_offset=12-pixels_per_note#The number of pixels below the start of the first note
+pixel_offset=pixel_offset-12*pixels_per_note
+pixel_offset=24*3
+pixel_offset=-12
 semitone_shift=0
 #SETTINGS END
 
+def get_pixel_offset():
+	if pixel_offset_grab_pos is not None:
+		return pixel_offset-floor(position)+pixel_offset_grab_pos
+	else:
+		return pixel_offset
 
 switch_scale_button_index=1
 switch_scale_button_press_viewer=buttons.green_press_viewers[switch_scale_button_index]
 buttons.green_buttons[switch_scale_button_index].light=True
 
-current_scale     =scales     [-1]
-current_scale_name=scale_names[-1]
-switch_scale()
-neopixels.draw_pixel_colors(current_scale)
-neopixels.refresh()
 
 last_midi_time=seconds()
 position=0
 shifted_position=position+pixel_offset
 temp_semitone_shift=0
 temp_slide_value_shift=0
+pixel_offset_grab_pos=None
 
 gate_timer=Stopwatch()
+
+current_scale     =scales     [-1]
+current_scale_name=scale_names[-1]
+switch_scale()
+neopixels.draw_pixel_colors(current_scale)
+neopixels.refresh()
 
 while True:
 	use_pressure=False
@@ -185,7 +196,7 @@ while True:
 					else:
 						reading.value=reading.new
 
-		if not reading.gate: #Don't accidently shift key
+		if not reading.gate and not buttons.metal_button.value: #Don't accidently shift key
 			if   buttons.green_3_press_viewer.value and buttons.green_button_1.value:
 				semitone_shift-=1
 				display_state()
@@ -195,24 +206,24 @@ while True:
 		buttons.green_3_press_viewer.value
 		buttons.green_1_press_viewer.value
 
-		if buttons.green_button_1.value:
+		if buttons.green_button_1.value and not buttons.metal_button.value:
 			temp_semitone_shift=1
-		if buttons.green_button_3.value:
+		if buttons.green_button_3.value and not buttons.metal_button.value:
 			temp_semitone_shift=-1
 
 
 		if reading.gate:
 			gate_timer.tic()
 			position=reading.value
-			shifted_position=position+pixel_offset
+			shifted_position=position+get_pixel_offset()
 			value=shifted_position/pixels_per_note
 			if buttons.green_button_2.value: #When holding down the middle button, bend the notes...
 				if not temp_slide_value_shift:
-					temp_slide_value_shift=int(value)-value #This is so the note doesn't change as soon as we press button 2
+					temp_slide_value_shift=floor(value)-value #This is so the note doesn't change as soon as we press button 2
 				value+=temp_slide_value_shift
 			else:
 				temp_slide_value_shift=0
-				value=int(value)
+				value=floor(value)
 			
 			value=note_to_pitch(value,*current_scale)
 			ribbon=reading.ribbon
@@ -220,7 +231,7 @@ while True:
 			if ribbon.name=='b':#CHOO CHOO
 				value+=12#Up a full octave (12 semitones)
 			new_note=value
-			new_note=int(new_note)
+			new_note=floor(new_note)
 			remainder=value-new_note
 			if new_note != note:
 				if note is None:
@@ -241,13 +252,23 @@ while True:
 			if note is not None:
 				gate_off(note)
 				note=None
+
 		if seconds()-last_midi_time>1/midi_messages_per_second:
 			last_midi_time=seconds()
 			send_state()
-			neopixels.draw_pixel_colors(current_scale,position=shifted_position,pixels_per_note=pixels_per_note,pixel_offset=pixel_offset)
+			neopixels.draw_pixel_colors(current_scale,position=shifted_position,pixels_per_note=pixels_per_note,pixel_offset=get_pixel_offset())
 			neopixels.refresh()
+
+		if buttons.metal_button.value and buttons.green_button_1.value and reading.gate:
+			#Press metal+button 1 and drag on ribbon to drag pixels
+			if pixel_offset_grab_pos is None:
+				pixel_offset_grab_pos=floor(position)
+			display_state()
+		elif pixel_offset_grab_pos is not None:
+			pixel_offset=get_pixel_offset()
+			pixel_offset_grab_pos=None
 			
-		if switch_scale_button_press_viewer.value and gate_timer.toc()>1/2 and not reading.gate:
+		if not buttons.metal_button.value and switch_scale_button_press_viewer.value and gate_timer.toc()>1/2 and not reading.gate:
 			#Must wait 1/2 second after playing to change the scale
 			switch_scale()
 

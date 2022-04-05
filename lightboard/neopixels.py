@@ -134,16 +134,20 @@ def draw_pixel_colors(
 	num_pixels       = length,
 	brightness       = None,
 	offset           = 0,
-	position         = None,
+	position         = None, #Assumed to be shifted by pixel_offset
 	extra_brightness = 3,
 	touch_color      = (1,1,1),
 	pixel_offset     = 0):
-	assert pixel_offset>=0, 'Due to the implementation, pixel_offset must be positive'
+
+	#TODO: Simplify this function by taking in a note index and a position index separately.
+
 	import math
 	if brightness is None:
 		brightness=1/config.get_with_default('neopixels brightness',default=20)
 	if pixels_per_note is None:
 		pixels_per_note=config.get_with_default('neopixels pixels_per_note',default=3)
+
+	pixels_per_scale = (len(scale)-1)*pixels_per_note #len(scale)-1 because major scale has 8 notes, not 7 (includes 12)
 
 	colors=[semitone_colors[semitone] for semitone in scale[:-1]]
 	right_padding=bytes([0,0,0])*int(math.floor((pixels_per_note-1)/2))
@@ -152,19 +156,30 @@ def draw_pixel_colors(
 
 
 	if position is not None:
-		start_index=int(position/pixels_per_note)
-		start_index=start_index%(len(scale)-1)
-		r,g,b=colors[start_index]
-		data[3*start_index*pixels_per_note:3*start_index*pixels_per_note+3*pixels_per_note]=float_color_to_bytes(r*brightness*extra_brightness,
-		                                                                   g*brightness*extra_brightness,
-		                                                                   b*brightness*extra_brightness)*pixels_per_note
+		note_index=floor(position/pixels_per_note)
+		note_index=note_index%(len(scale)-1)
+		r,g,b=colors[note_index]
+		if position<0:
+			r,g,b=1,1,0
+
+		color_bytes = float_color_to_bytes(
+			r*brightness*extra_brightness,
+			g*brightness*extra_brightness,
+			b*brightness*extra_brightness,
+		)
+
+		data_start_index = 3*note_index*pixels_per_note
+		data_end_index = data_start_index + 3*pixels_per_note
+		data[data_start_index : data_end_index] = color_bytes*pixels_per_note
+
 	data=data*(num_pixels*3//len(data)+2)
 	data=data[offset:][:3*num_pixels]
+	data = data[3*(pixel_offset%pixels_per_scale):]+data[:3*(pixel_offset%pixels_per_scale)]
 	if position is not None:
-		index=int(position)*3
-		if index<=len(data)-3:
+		byte_index=int(position-pixel_offset)*3
+		if byte_index>=0 and byte_index<=len(data)-3:
 			#Make the individual pixel we're touching glow
-			data[index:index+3]=float_color_to_bytes(*touch_color)
-	data = data[3*pixel_offset:]+data[:3*pixel_offset]
+			data[byte_index:byte_index+3]=float_color_to_bytes(*touch_color)
+
 	draw(data)
 	return data
