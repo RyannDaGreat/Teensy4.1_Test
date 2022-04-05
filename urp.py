@@ -31,6 +31,7 @@ import time
 from time import sleep
 from time import monotonic_ns
 from micropython import const
+from math import floor,ceil
 
 def millis():
 	return monotonic_ns()//1000000
@@ -275,7 +276,6 @@ def digits_to_number(digits:list):
 	#    ans = 123
 	return sum(digit*10**i for i,digit in enumerate(reversed(digits)))
 
-	
 major_scale=[0,2,4,5,7,9,11,12]
 natural_minor_scale=[0,2,3,5,7,8,10,12]
 harmonic_minor_scale=[0,2,3,5,7,8,11,12]
