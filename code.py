@@ -119,6 +119,7 @@ def display_state():
 	display.set_text("Scale: "+current_scale_name+\
 		"\nKey: %i  aka  %s %i"%(semitone_shift,key_names[semitone_shift%12],semitone_shift//12)+\
 		"\n\nPixel Offset: %i"%get_pixel_offset()+\
+		'\nPixels Per Note: %i'%pixels_per_note+\
 		'\n\nUsing Pressure: %s'%('Yes' if use_pressure else 'No')+\
 		'\n\nPress all buttons to exit')
 
@@ -126,7 +127,7 @@ def display_state():
 pixels_per_note=3
 pixel_offset=12-pixels_per_note#The number of pixels below the start of the first note
 pixel_offset=pixel_offset-12*pixels_per_note
-pixel_offset=24*3
+# pixel_offset=24*3
 pixel_offset=-12
 semitone_shift=0
 #SETTINGS END
@@ -309,6 +310,13 @@ while True:
 		if buttons.metal_button.value and switch_scale_button_press_viewer.value:
 			#Must wait 1/2 second after playing to change the scale
 			switch_scale()
+
+		if buttons.metal_button.value and buttons.green_3_press_viewer.value:
+			#Must wait 1/2 second after playing to change the scale
+			pixels_per_note+=1
+			pixels_per_note=pixels_per_note%6
+			pixels_per_note=max(1,pixels_per_note)
+			display_state()
 
 		if buttons.green_button_1.value and buttons.green_button_3.value and buttons.metal_button.value:
 			#Reset all presses
