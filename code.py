@@ -177,7 +177,8 @@ while True:
 				delta = reading.new-reading.old
 				# delta = reading.new-position
 				if reading.num_fingers==2:
-					if abs(delta)<1.5: #Width of shift vs breaking to new note
+
+					if 0 and abs(delta)<3: #Width of shift vs breaking to new note
 						# reading.value=reading.old
 						reading.value=position #Hold old position. TODO this totally breaks when pixel_offset!=0 because of the position+=pixel_offset line...
 						temp_semitone_shift=sign(delta)

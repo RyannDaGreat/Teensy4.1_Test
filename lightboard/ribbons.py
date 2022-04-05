@@ -458,7 +458,7 @@ class ProcessedDualTouchReading:
 	#DELTA_THRESHOLD might need to be changed if you calibrate with a pencil eraser instead of your fingertip, because the pencil eraser is a narrower touch area etc.
 	#You should always calibrate using your finger for this reason...
 
-	TWO_TOUCH_THRESHOLD=0#A distance, measured in neopixel widths, that the dual readings must be apart from each other to register as 
+	TWO_TOUCH_THRESHOLD=1.5#A distance, measured in neopixel widths, that the dual readings must be apart from each other to register as 
 	TWO_TOUCH_THRESHOLD_SLACK=.05 #A bit of hysterisis used here...like a tether. Basically, to prevent flickering on the bonudary, to switch between two touch and one touch you must move this much distance.
 
 	def __init__(self,ribbon,blink=False):
