@@ -171,7 +171,7 @@ while True:
 		if reading==reading_a:
 			#Ribbon B is bad with dual touch....bad hardware?
 			if reading.gate:
-				ribbons.ProcessedDualTouchReading.TWO_TOUCH_THRESHOLD=0
+				# ribbons.ProcessedDualTouchReading.TWO_TOUCH_THRESHOLD=0
 				# reading.value=reading.new
 				reading.value=reading.mid
 				delta = reading.new-reading.old

@@ -422,7 +422,10 @@ class CheapSingleTouchReading(SingleTouchReading):
 	#		Even though the raw range is the same for both analog_in and ads_single, we need a larger GATE_THRESHOLD for CheapSingleTouchReading beacause of this flaw in Teensy's ADC.
 	#Uses the Teensy's internal ADC that can read up to 6000x per second
 	#TODO: Implement a variation of the SingleTouchReading class called quick-gate check via the Teensy's internal ADC to save a bit of time and get more accurate results on the dual touch readings (because then we can check both upper and lower both before and after the dual readings which means less spikes)
-	GATE_THRESHOLD=1500
+	#GATE_THRESHOLD is proportional to a threshold of the voltage gap between LOW and HIGH
+	#When GATE_THRESHOLD is small, there are less unwanted jumps when barely pressing the ribbon. But if its too small, it won't register touches.
+	GATE_THRESHOLD=1500  #This was measured to be a good value for most of the ribbon
+	GATE_THRESHOLD=4000  #But, the ribbon has a kink in the middle that jumps a lot voltage over the space of a milimeter.
 	def read_raw_lower(self):
 		self.prepare_to_read()
 		single_pull.value=False
@@ -450,7 +453,7 @@ class DualTouchReading:
 		self.ribbon.ads.gain=ads_gain_dual
 
 class ProcessedDualTouchReading:
-	__slots__=['gate','bot','top','mid','num_fingers','old','new','raw_bot','raw_top','raw_mid']
+	__slots__=['gate','bot','top','mid','num_fingers','old','new']
 
 	DELTA_THRESHOLD=-4 # A distance, measured in neopixel widths, that the two dual touches can be apart from one another before registering as not being touched. (This is because, as it turns out, it can sometimes take more than one sample for dual touch values to go all the way back to the top after releasing your finger from the ribbon)
 	#You want to calibrate DELTA_THRESHOLD such that it's high enough to keep good readings once you release your finger, but low enough that it doesn't require pressing down too hard to activate. 
@@ -458,7 +461,7 @@ class ProcessedDualTouchReading:
 	#DELTA_THRESHOLD might need to be changed if you calibrate with a pencil eraser instead of your fingertip, because the pencil eraser is a narrower touch area etc.
 	#You should always calibrate using your finger for this reason...
 
-	TWO_TOUCH_THRESHOLD=1.5#A distance, measured in neopixel widths, that the dual readings must be apart from each other to register as 
+	TWO_TOUCH_THRESHOLD=2 #A distance, measured in neopixel widths, that the dual readings must be apart from each other to register as 
 	TWO_TOUCH_THRESHOLD_SLACK=.05 #A bit of hysterisis used here...like a tether. Basically, to prevent flickering on the bonudary, to switch between two touch and one touch you must move this much distance.
 
 	def __init__(self,ribbon,blink=False):
@@ -467,13 +470,19 @@ class ProcessedDualTouchReading:
 		#	In the event that the hardware of the z
 		self.ribbon=ribbon
 
+		def clear_filters():
+			ribbon.cheap_single_filter.clear()
+			ribbon.dual_bot_filter.clear()
+			ribbon.dual_top_filter.clear()
+
 		previous_gate=ribbon.previous_gate
 
-		single_before=ribbon.cheap_single_touch_reading()
+		single_before=ribbon.processed_cheap_single_touch_reading()
 
 		if not single_before.gate:
-			self.gate=False
 			#Don't waste time with the dual touch reading if one of the gates is False
+			self.gate=False
+			clear_filters()
 			return
 
 		with neopixels.TemporarilyTurnedOff() if blink else EmptyContext():
@@ -481,63 +490,68 @@ class ProcessedDualTouchReading:
 
 		single_after=ribbon.cheap_single_touch_reading()
 
+		if not single_after.gate:
+			self.gate=False
+			clear_filters()
+			return
+
 		if not previous_gate:
-			ribbon.dual_bot_filter.clear()
-			ribbon.dual_top_filter.clear()
+			clear_filters()
 
-		self.gate=single_before.gate and single_after.gate
-		if self.gate:
-			#TODO: Lower the DELTA_THRESHOLD and use self.middle whenever it gets too crazy; that way we can have maximum sensitivity and never miss a sample...
-			mid=(single_before.raw_value+single_after.raw_value)/2
-			top=dual_reading.raw_a
-			bot=dual_reading.raw_b
+		self.gate=True #single_before.gate and single_after.gate
 
-			top=ribbon.dual_touch_top_to_neopixel_calibration(top)
-			bot=ribbon.dual_touch_bot_to_neopixel_calibration(bot)
-			mid=ribbon.cheap_single_touch_to_neopixel_calibration(mid)
-			delta=top-bot
+		#TODO: Lower the DELTA_THRESHOLD and use self.middle whenever it gets too crazy; that way we can have maximum sensitivity and never miss a sample...
+		mid=(single_before.raw_value+single_after.raw_value)/2
+		top=dual_reading.raw_a
+		bot=dual_reading.raw_b
 
-			#The older and newer dual touch positions. Only different when num_fingers>1
-			if not hasattr(ribbon,'previous_dual_old'):
-				ribbon.previous_dual_old=mid
-			old,new=sorted([bot,top],key=lambda pos:abs(pos-ribbon.previous_dual_old))
+		top=ribbon.dual_touch_top_to_neopixel_calibration(top)
+		bot=ribbon.dual_touch_bot_to_neopixel_calibration(bot)
+		mid=ribbon.cheap_single_touch_to_neopixel_calibration(mid)
+		mid=ribbon.cheap_single_filter(mid)
+		delta=top-bot
 
-			# old_num_fingers=ribbon.dual_num_fingers
-			# changed_num_fingers=False
-			if not previous_gate:
-				ribbon.dual_num_fingers = 2 if delta>self.TWO_TOUCH_THRESHOLD else 1
-				# changed_num_fingers=old_num_fingers!=ribbon.dual_num_fingers
-			elif ribbon.dual_num_fingers == 1 and delta>self.TWO_TOUCH_THRESHOLD+self.TWO_TOUCH_THRESHOLD_SLACK:
-				ribbon.dual_num_fingers = 2
-				# changed_num_fingers=old_num_fingers!=ribbon.dual_num_fingers
-			elif ribbon.dual_num_fingers == 2 and delta<self.TWO_TOUCH_THRESHOLD-self.TWO_TOUCH_THRESHOLD_SLACK:
-				ribbon.dual_num_fingers = 1
-				# changed_num_fingers=old_num_fingers!=ribbon.dual_num_fingers
-			self.num_fingers=ribbon.dual_num_fingers
+		# old_num_fingers=ribbon.dual_num_fingers
+		# changed_num_fingers=False
+		if delta<=self.DELTA_THRESHOLD:
+			ribbon.dual_num_fingers=1
+			# changed_num_fingers=old_num_fingers!=ribbon.dual_num_fingers
+		elif not previous_gate:
+			ribbon.dual_num_fingers = 2 if delta>self.TWO_TOUCH_THRESHOLD else 1
+			# changed_num_fingers=old_num_fingers!=ribbon.dual_num_fingers
+		elif ribbon.dual_num_fingers == 1 and delta>self.TWO_TOUCH_THRESHOLD+self.TWO_TOUCH_THRESHOLD_SLACK:
+			ribbon.dual_num_fingers = 2
+			# changed_num_fingers=old_num_fingers!=ribbon.dual_num_fingers
+		elif ribbon.dual_num_fingers == 2 and delta<self.TWO_TOUCH_THRESHOLD-self.TWO_TOUCH_THRESHOLD_SLACK:
+			ribbon.dual_num_fingers = 1
+			# changed_num_fingers=old_num_fingers!=ribbon.dual_num_fingers
+		self.num_fingers=ribbon.dual_num_fingers
 
-			# if changed_num_fingers:
-			# 	ribbon.dual_bot_filter.clear()
-			# 	ribbon.dual_top_filter.clear()
+		# if changed_num_fingers:
+		# 	clear_filters()
 
-			self.gate=self.gate and delta>self.DELTA_THRESHOLD
-			if self.gate:
-				if bot>top:
-					#The only time self.bot>self.top is when your're barely pressing on the ribbon at all...
-					#...we can average these two values out to get a single, more reasonable value
-					bot=top=(bot+top)/2
+		if self.num_fingers==1:
+			#Even if the two-touches can't be used, we can still use the single cheap touch value
+			#Originally, this set gate to False. Now it doesn't.
+			bot=top=mid
 
-				if self.num_fingers==1:
-					bot=top=sorted((top,bot,mid))[1]
+		elif bot>top:
+			#The only time self.bot>self.top is when your're barely pressing on the ribbon at all...
+			#...we can average these two values out to get a single, more reasonable value
+			bot=top=(bot+top)/2
 
-				self.raw_top=top
-				self.raw_bot=bot
-				self.raw_mid=mid
-				self.top=ribbon.dual_top_filter    (top)
-				self.bot=ribbon.dual_bot_filter    (bot)
-				self.mid=ribbon.cheap_single_filter(mid)
-				self.old=old
-				self.new=new
-				ribbon.previous_dual_old=old
+		#The older and newer dual touch positions. Only different when num_fingers>1
+		if not hasattr(ribbon,'previous_dual_old'):
+			ribbon.previous_dual_old=mid
+		old,new=sorted([bot,top],key=lambda pos:abs(pos-ribbon.previous_dual_old))
+
+		self.top=ribbon.dual_top_filter(top)
+		self.bot=ribbon.dual_bot_filter(bot)
+		self.mid=mid
+		self.old=old
+		self.new=new
+		ribbon.previous_dual_old=old
+
 
 class ProcessedSingleTouchReading:
 	def __init__(self,ribbon,blink=False):
