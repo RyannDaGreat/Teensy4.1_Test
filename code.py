@@ -113,6 +113,7 @@ def switch_scale():
 	current_scale=scales[scale_index]
 	current_scale_name=scale_names[scale_index]
 	display_state()
+	save_slot()
 
 use_pressure=False
 def display_state():
@@ -121,6 +122,7 @@ def display_state():
 		"\n\nPixel Offset: %i"%get_pixel_offset()+\
 		'\nPixels Per Note: %i'%pixels_per_note+\
 		'\n\nUsing Pressure: %s'%('Yes' if use_pressure else 'No')+\
+		'\n\nSlot Number: %i'%current_slot_num+\
 		'\n\nPress all buttons to exit')
 
 #SETTINGS START:
@@ -152,12 +154,39 @@ pixel_offset_grab_pos=None
 
 gate_timer=Stopwatch()
 
+#Loading and saving slots is good for performances. You have to prep them though.
+slots={1:{},2:{},3:{}}
+current_slot_num=0
+slot_load_mode=False
+def get_current_slot():
+	names='current_scale current_scale_name semitone_shift pixel_offset pixels_per_note'.split()
+	slot={}
+	for name in names:
+		value = globals()[name]
+		if hasattr(value,'copy'):
+			value=value.copy()
+		slot[name]=value
+	return slot
+
+def save_slot(slot_num=None):
+	if slot_num is None:
+		slot_num=current_slot_num
+	slots[slot_num]=get_current_slot()
+
+def load_slot(slot_num=None):
+	global current_slot_num
+	slot=slots[slot_num]
+	for name in slot:
+		globals()[name]=slot[name]
+	current_slot_num=slot_num
+	display_state()
+
+
 current_scale     =scales     [-1]
 current_scale_name=scale_names[-1]
 switch_scale()
 neopixels.draw_pixel_colors(current_scale)
 neopixels.refresh()
-
 
 while True:
 	use_pressure=False
@@ -190,6 +219,11 @@ while True:
 	display_state()
 
 	while True:
+
+		metal_pressed = buttons.metal_press_viewer.value
+		green_1_pressed = buttons.green_1_press_viewer.value
+		green_2_pressed = buttons.green_2_press_viewer.value
+		green_3_pressed = buttons.green_3_press_viewer.value
 
 		# reading_a=ribbons.ribbon_a.processed_cheap_single_touch_reading()
 		# reading_b=ribbons.ribbon_b.processed_cheap_single_touch_reading()
@@ -234,21 +268,39 @@ while True:
 				else:
 					reading.value=reading.new
 
+		#Handle loading and saving of slots
+		if not gate and not slot_load_mode and (buttons.metal_button.value and green_1_pressed or metal_pressed and buttons.green_button_1.value):#Press them together in any order
+			slot_load_mode=True
+			buttons.metal_button.color=(0,1,1) #When button is cyan, we're in slot load mode
+		elif metal_pressed and slot_load_mode:
+			slot_load_mode=False
+			buttons.metal_button.color=(0,0,0) #When button is cyan, we're in slot load mode
+		elif not buttons.metal_button.value and slot_load_mode and green_1_pressed: load_slot(1);              buttons.metal_button.color=(0,0,0); slot_load_mode=False
+		elif not buttons.metal_button.value and slot_load_mode and green_2_pressed: load_slot(2);              buttons.metal_button.color=(0,0,0); slot_load_mode=False
+		elif not buttons.metal_button.value and slot_load_mode and green_3_pressed: load_slot(3);              buttons.metal_button.color=(0,0,0); slot_load_mode=False
+		elif     buttons.metal_button.value and slot_load_mode and green_1_pressed: save_slot(1);load_slot(1); buttons.metal_button.color=(0,0,0); slot_load_mode=False #TODO: Instead of this, make meta-slots - slot sets that are saved in config
+		elif     buttons.metal_button.value and slot_load_mode and green_2_pressed: save_slot(2);load_slot(2); buttons.metal_button.color=(0,0,0); slot_load_mode=False #TODO: Instead of this, make meta-slots - slot sets that are saved in config
+		elif     buttons.metal_button.value and slot_load_mode and green_3_pressed: save_slot(3);load_slot(3); buttons.metal_button.color=(0,0,0); slot_load_mode=False #TODO: Instead of this, make meta-slots - slot sets that are saved in config
+		if slot_load_mode and not buttons.metal_button.value: buttons.metal_button.color=(0,1,0)
+
+
+
+
+
 		if not gate and not buttons.metal_button.value: #Don't accidently shift key
-			if   buttons.green_3_press_viewer.value and buttons.green_button_1.value:
+			if   green_3_pressed and buttons.green_button_1.value:
 				semitone_shift-=1
+				save_slot()
 				display_state()
-			elif buttons.green_1_press_viewer.value and buttons.green_button_3.value:
+			elif green_1_pressed and buttons.green_button_3.value:
 				semitone_shift+=1
+				save_slot()
 				display_state()
-		buttons.green_3_press_viewer.value
-		buttons.green_1_press_viewer.value
 
 		if buttons.green_button_1.value and not buttons.metal_button.value:
 			temp_semitone_shift=1
 		if buttons.green_button_3.value and not buttons.metal_button.value:
 			temp_semitone_shift=-1
-
 
 		if gate:
 			gate_timer.tic()
@@ -297,7 +349,7 @@ while True:
 			neopixels.draw_pixel_colors(current_scale,position=shifted_position,pixels_per_note=pixels_per_note,pixel_offset=get_pixel_offset())
 			neopixels.refresh()
 
-		if buttons.metal_button.value and buttons.green_button_1.value and gate:
+		if buttons.metal_button.value and gate:
 			#Press metal+button 1 and drag on ribbon to drag pixels
 			if pixel_offset_grab_pos is None:
 				pixel_offset_grab_pos=floor(position)
@@ -305,17 +357,19 @@ while True:
 		elif pixel_offset_grab_pos is not None:
 			pixel_offset=get_pixel_offset()
 			pixel_offset_grab_pos=None
+			save_slot()
 			
 		# if not buttons.metal_button.value and switch_scale_button_press_viewer.value and gate_timer.toc()>1/2 and not gate:
 		if buttons.metal_button.value and switch_scale_button_press_viewer.value:
 			#Must wait 1/2 second after playing to change the scale
 			switch_scale()
 
-		if buttons.metal_button.value and buttons.green_3_press_viewer.value:
+		if buttons.metal_button.value and green_3_pressed:
 			#Must wait 1/2 second after playing to change the scale
 			pixels_per_note+=1
 			pixels_per_note=pixels_per_note%6
 			pixels_per_note=max(1,pixels_per_note)
+			save_slot()
 			display_state()
 
 		if buttons.green_button_1.value and buttons.green_button_3.value and buttons.metal_button.value:
