@@ -203,7 +203,10 @@ while True:
 			use_pressure=True
 			break
 		elif option=='Brightness':
-			widgets.edit_config_int('neopixels brightness')
+			def preview_brightness():
+				neopixels.draw_pixel_colors()
+				neopixels.refresh()
+			widgets.edit_config_int('neopixels brightness',on_update=preview_brightness,min_value=1,exponential=True,message='Neopixel Brightness\nLarger values are dimmer\n')
 		elif option=='Calibrate Ribbons':
 			ribbons.show_calibration_menu()
 		elif option=='Calibrate Pressure':

@@ -128,6 +128,7 @@ def float_color_to_bytes(r,g,b):
 	b=clamp(int(b*256),0,255)
 	return bytes([g,r,b])
 
+
 def draw_pixel_colors(
 	scale            = major_scale,
 	pixels_per_note  = None,
@@ -143,7 +144,9 @@ def draw_pixel_colors(
 
 	import math
 	if brightness is None:
-		brightness=1/config.get_with_default('neopixels brightness',default=20)
+		config_brightness=config.get_with_default('neopixels brightness',default=20)
+		config_brightness=max(1,config_brightness) #If the config is screwed up and config_brightness is 0, make it 1
+		brightness=1/config_brightness
 	if pixels_per_note is None:
 		pixels_per_note=config.get_with_default('neopixels pixels_per_note',default=3)
 
