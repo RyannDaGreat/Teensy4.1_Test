@@ -22,7 +22,7 @@ def input_select(options,prompt='Please select an option:',can_cancel=False,must
 	import lightboard.display as display
 
 	prompt_lines=prompt.split('\n')
-	prefix=prompt_lines+['Green: 2,1 -> Up/Down, 3 -> Select']
+	prefix=prompt_lines+['Green: 3,1 -> Up/Down, 2 -> Select']
 	if can_cancel:
 		prefix+=['Metal: Cancel']
 	
@@ -48,9 +48,9 @@ def input_select(options,prompt='Please select an option:',can_cancel=False,must
 			while True:
 				if buttons.green_1_press_viewer.value:
 					index+=1
-				if buttons.green_2_press_viewer.value:
-					index-=1
 				if buttons.green_3_press_viewer.value:
+					index-=1
+				if buttons.green_2_press_viewer.value:
 					if not must_confirm or input_yes_no("Are you sure you want to select\n    "+repr(options[index])):
 						return options[index]
 				if buttons.metal_press_viewer.value and can_cancel and (not confirm_cancel or input_yes_no("Are you sure you want to cancel?")):
