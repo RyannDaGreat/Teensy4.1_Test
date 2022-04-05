@@ -282,3 +282,17 @@ harmonic_minor_scale=[0,2,3,5,7,8,11,12]
 blues_scale=[0,3,5,6,7,10,12]
 chromatic_scale=[0,1,2,3,4,5,6,7,8,9,10,11,12]
 
+def add_semitone_to_scale(scale:list,semitone:int)->None:
+	assert 0 in scale and 12 in scale, 'All semitone-based scales must have 0 and 12 in them. Scale: %s'%str(scale)
+	semitone=semitone%12
+	if semitone in scale:
+		return
+	scale.append(semitone)
+	scale.sort()
+
+def remove_semitone_from_scale(scale:list,semitone:int)->None:
+	assert 0 in scale and 12 in scale, 'All semitone-based scales must have 0 and 12 in them. Scale: %s'%str(scale)
+	semitone=semitone%12
+	if semitone==0:
+		return
+	scale[:]=[x for x in scale if x!=semitone]

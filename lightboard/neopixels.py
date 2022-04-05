@@ -138,7 +138,8 @@ def draw_pixel_colors(
 	position         = None, #Assumed to be shifted by pixel_offset
 	extra_brightness = 3,
 	touch_color      = (1,1,1),
-	pixel_offset     = 0):
+	pixel_offset     = 0,
+	used_custom_scale= None):
 
 	#TODO: Simplify this function by taking in a note index and a position index separately.
 
@@ -157,9 +158,9 @@ def draw_pixel_colors(
 	left_padding =bytes([0,0,0])*int(math.ceil ((pixels_per_note-1)/2))
 	data=bytearray(b''.join([left_padding+float_color_to_bytes(r*brightness,g*brightness,b*brightness)+right_padding for r,g,b in colors]))
 
+# edit_custom_scale
 
-	if position is not None:
-		note_index=floor(position/pixels_per_note)
+	def highlight_note(note_index):
 		note_index=note_index%(len(scale)-1)
 		r,g,b=colors[note_index]
 
@@ -172,6 +173,14 @@ def draw_pixel_colors(
 		data_start_index = 3*note_index*pixels_per_note
 		data_end_index = data_start_index + 3*pixels_per_note
 		data[data_start_index : data_end_index] = color_bytes*pixels_per_note
+
+	if used_custom_scale is not None:
+		for note in used_custom_scale:
+			highlight_note(note)
+
+	elif position is not None:
+		note_index=floor(position/pixels_per_note)
+		highlight_note(note_index)
 
 	data=data*(num_pixels*3//len(data)+2)
 	data=data[offset:][:3*num_pixels]

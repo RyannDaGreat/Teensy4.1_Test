@@ -80,17 +80,30 @@ def pitch_bend(semitones):
 buttons.set_green_button_lights(0,0,0,0)
 buttons.metal_button.color=(0,0,0)
 
-scales=[major_scale,
-        natural_minor_scale,
-        harmonic_minor_scale,
-        blues_scale,
-        chromatic_scale]
+# custom_scale=major_scale.copy()
 
-scale_names=['Major',
-             'Natural Minor',
-             'Harmonic Minor',
-             'Blues',
-             'Chromatic']
+# custom_scale=[0,2,4,5,7,9,11,12]
+# custom_scale=[0,2,4,5,7,9,10,11,12]
+custom_scale=config.get_with_default('scales custom 0',default=major_scale.copy())
+
+
+scales=[
+	major_scale,
+	custom_scale,
+	natural_minor_scale,
+	harmonic_minor_scale,
+	blues_scale,
+	chromatic_scale,
+]
+
+scale_names=[
+	'Major',
+	'Custom',
+	'Natural Minor',
+	'Harmonic Minor',
+	'Blues',
+	'Chromatic',
+]
 
 key_names=[
 	'C',
@@ -107,22 +120,29 @@ key_names=[
 	'B',
 ]
 
-def switch_scale():
+def switch_scale(silent=False):
 	global current_scale, current_scale_name
-	scale_index=(scales.index(current_scale)+1)%len(scales)
+	scale_index=(scale_names.index(current_scale_name)+1)%len(scales)
 	current_scale=scales[scale_index]
 	current_scale_name=scale_names[scale_index]
-	display_state()
 	save_slot()
+	if not silent:
+		display_state()
 
 use_pressure=False
 def display_state():
-	display.set_text("Scale: "+current_scale_name+\
+	extra_text=''
+
+	if edit_custom_scale is not None:
+		extra_text='Editing Custom Scale\nUse ribbons to add or remove notes\nHold green 2 to play notes\n'
+		extra_text+="Custom Scale Semitones:\n   %s "%' '.join([str(x) for x in custom_scale])+"\n\n";
+	display.set_text(extra_text+"Scale: "+current_scale_name+\
 		"\nKey: %i  aka  %s %i"%(semitone_shift,key_names[semitone_shift%12],semitone_shift//12)+\
 		"\n\nPixel Offset: %i"%get_pixel_offset()+\
 		'\nPixels Per Note: %i'%pixels_per_note+\
 		'\n\nUsing Pressure: %s'%('Yes' if use_pressure else 'No')+\
 		'\n\nSlot Number: %i'%current_slot_num+\
+		"\n\nScale Semitones:\n   %s "%' '.join([str(x) for x in current_scale])+\
 		'\n\nPress all buttons to exit')
 
 #SETTINGS START:
@@ -151,6 +171,7 @@ shifted_position=position+pixel_offset
 temp_semitone_shift=0
 temp_slide_value_shift=0
 pixel_offset_grab_pos=None
+edit_custom_scale=None
 
 gate_timer=Stopwatch()
 
@@ -184,23 +205,31 @@ def load_slot(slot_num=None):
 
 current_scale     =scales     [-1]
 current_scale_name=scale_names[-1]
-switch_scale()
+switch_scale(silent=True)
 neopixels.draw_pixel_colors(current_scale)
 neopixels.refresh()
 
 while True:
-	use_pressure=False
+	use_pressure=True
+	edit_custom_scale=None #Either None or the index of a custom scale. Right now there's only 1 custom scale but this might change.
+
+
 	while True:
 		option=widgets.input_select(
-			['Play','Play Without Pressure','Calibrate Ribbons','Calibrate Pressure','Brightness','Jiggle Mod Wheel'],
+			['Play','Play Without Pressure','Edit Custom Scale','Calibrate Ribbons','Calibrate Pressure','Brightness','Jiggle Mod Wheel'],
 			# prompt="Please choose new option\n    Old option: "+repr(config['weeble wobble wooble'])+'\n'+repr(config),
 			prompt='\nLightWave - Choose what to do:',
 			can_cancel=False,
 			must_confirm=False)
 		if option=='Play Without Pressure':
+			use_pressure=False
+			break
+		if option=='Edit Custom Scale':
+			edit_custom_scale=0
+			current_scale=chromatic_scale
+			current_scale_name='Chromatic'
 			break
 		if option=='Play':
-			use_pressure=True
 			break
 		elif option=='Brightness':
 			def preview_brightness():
@@ -310,7 +339,7 @@ while True:
 			position=reading.value
 			shifted_position=position+get_pixel_offset()
 			value=shifted_position/pixels_per_note
-			if buttons.green_button_2.value: #When holding down the middle button, bend the notes...
+			if buttons.green_button_2.value and edit_custom_scale is None: #When holding down the middle button, bend the notes...
 				if not temp_slide_value_shift:
 					temp_slide_value_shift=floor(value)-value #This is so the note doesn't change as soon as we press button 2
 				value+=temp_slide_value_shift
@@ -331,6 +360,18 @@ while True:
 					note_on(new_note)
 					pitch_bend(remainder)
 					note=new_note
+
+					if edit_custom_scale is not None and not buttons.green_button_2.value:
+						scale_semitone=new_note
+						if reading.ribbon==ribbons.ribbon_a:
+							#Add a note to the scale
+							add_semitone_to_scale(custom_scale,scale_semitone)
+							display_state()
+						if reading.ribbon==ribbons.ribbon_b:
+							#Remove a note from the scale
+							remove_semitone_from_scale(custom_scale,scale_semitone)
+							display_state()
+
 				else:
 					if abs(value-note)>bend_range:
 						note_on(new_note)
@@ -349,7 +390,7 @@ while True:
 		if seconds()-last_midi_time>1/midi_messages_per_second:
 			last_midi_time=seconds()
 			send_state()
-			neopixels.draw_pixel_colors(current_scale,position=shifted_position,pixels_per_note=pixels_per_note,pixel_offset=get_pixel_offset())
+			neopixels.draw_pixel_colors(current_scale,position=shifted_position,pixels_per_note=pixels_per_note,pixel_offset=get_pixel_offset(),used_custom_scale=custom_scale if edit_custom_scale is not None else None)
 			neopixels.refresh()
 
 		if buttons.metal_button.value and gate:
@@ -382,10 +423,18 @@ while True:
 			buttons.green_3_press_viewer.value
 			buttons.metal_press_viewer.value
 
+			try:note_off(note);send_state()
+			except:pass
+
 			try:
-				note_off(note);send_state()
+				if edit_custom_scale is not None:
+					config['scales custom 0']=custom_scale
+					display.set_text('Saved custom scale!')
 			except:
-				pass
+				if edit_custom_scale is not None:
+					display.set_text('FAILED to save custom scale!')
+					sleep(.25)
+
 			neopixels.turn_off()
 
 			display.set_text("Entering main menu")
