@@ -273,6 +273,10 @@ def input_set_calibration_weight():
 	except KeyboardInterrupt:
 		pass
 
+def get_imu():
+	refresh()
+	return raw_imu[:3],raw_imu[3:]
+
 def get_total_load_cell_weight():
 	#TODO: Add calibration for the total weight, and accelerometer correction
 	return sum(load_cell.calibration.value for load_cell in load_cells)
@@ -307,6 +311,24 @@ def test_pressure():
 		# display.set_text('Testing pressure:\n\n%15.3f\n\nPress green button 1 to continue'%(value))
 		neopixels.display_line(0,min(neopixels.length,max(0,value*neopixels.length)))
 		display.set_text('Pressure:\n%1.4f\nTime: %1.4f\n\nPress metal to exit'%(value,timer.toc()))
+
+	buttons.green_button_1.light=False
+
+def test_imu():
+	import lightboard.display as display
+	movmean=MovingAverage(1)
+	buttons.green_button_1.light=True
+	while not buttons.green_1_press_viewer.value:
+		# refresh()
+		timer=Stopwatch()
+		value=sum(get_imu()[1])*.1+.5
+		value=sum(x**2 for x in get_imu()[1])*.1+.5#Rotational accel
+		value=get_imu()[0][2]/10#gravity
+		# value=sum(get_imu()[0])*.1+.5
+		# value=movmean(value)
+		# display.set_text('Testing pressure:\n\n%15.3f\n\nPress green button 1 to continue'%(value))
+		neopixels.display_line(0,min(neopixels.length,max(0,value*neopixels.length)))
+		display.set_text('IMU:\n%1.4f\nTime: %1.4f\n\nPress metal to exit'%(value,timer.toc()))
 
 	buttons.green_button_1.light=False
 
@@ -354,6 +376,7 @@ def show_calibration_menu():
 	options['Tare All Load Cells'     ] = tare_all_load_cells
 	options['Test Raw Total Weight'   ] = test_total_load_cell_weight
 	options['Test Pressure'           ] = test_pressure
+	options['Test IMU'                ] = test_imu
 	options['Set Pressure Coefficient'] = input_set_weight_per_pressure
 
 	widgets.run_select_subroutine(options)
