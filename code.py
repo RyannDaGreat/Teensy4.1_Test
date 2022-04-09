@@ -3,6 +3,7 @@
 from lightboard.config import config
 from linear_modules import *
 from urp import *
+from collections import OrderedDict
 import lightboard.buttons as buttons
 import lightboard.display as display
 import lightboard.neopixels as neopixels
@@ -209,6 +210,32 @@ switch_scale(silent=True)
 neopixels.draw_pixel_colors(current_scale)
 neopixels.refresh()
 
+
+def select_patch(index=None):
+	if index is not None:
+		message=midi_cc(channel=100,value=index)
+
+		#Doing it 4 times just to be sure...maybe this isn't nessecary...but just in case lol
+		for _ in range(4):
+			transceiver.send(message,fast=fast)
+			sleep(.05)
+	else:
+		options = OrderedDict()
+
+		options['Synth'  ] = lambda: select_patch(0)
+		options['Shells' ] = lambda: select_patch(1)
+		options['Copper' ] = lambda: select_patch(2)
+		options['Steel'  ] = lambda: select_patch(3)
+		options['Distort'] = lambda: select_patch(4)
+		options['Brass'  ] = lambda: select_patch(5)
+		options['Sax'    ] = lambda: select_patch(6)
+		options['Anthem' ] = lambda: select_patch(7)
+		options['Stars'  ] = lambda: select_patch(8)
+		options['Flute'  ] = lambda: select_patch(9)
+
+		widgets.run_select_subroutine(options,prompt='Select Axoloti Patch:')
+
+
 while True:
 	use_pressure=True
 	edit_custom_scale=None #Either None or the index of a custom scale. Right now there's only 1 custom scale but this might change.
@@ -216,11 +243,14 @@ while True:
 
 	while True:
 		option=widgets.input_select(
-			['Play','Play Without Pressure','Edit Custom Scale','Calibrate Ribbons','Calibrate Pressure','Brightness','Jiggle Mod Wheel'],
+			['Play','Play Without Pressure','Edit Custom Scale','Calibrate Ribbons','Calibrate Pressure','Brightness','Jiggle Mod Wheel','Select Patch'],
 			# prompt="Please choose new option\n    Old option: "+repr(config['weeble wobble wooble'])+'\n'+repr(config),
 			prompt='\nLightWave - Choose what to do:',
 			can_cancel=False,
 			must_confirm=False)
+		if option=='Select Patch':
+			select_patch()
+			break
 		if option=='Play Without Pressure':
 			use_pressure=False
 			break
