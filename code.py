@@ -1,3 +1,6 @@
+#########BIG TODO: WAVEBOX: Make eyehooks longer and flip battery inside!
+
+
 #TODO: It appears that the pressure calibration tare can CHANGE randomly...even in the middle of playing then exiting....investigate!!
 
 from lightboard.config import config
