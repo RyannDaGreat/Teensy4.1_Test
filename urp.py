@@ -120,6 +120,28 @@ def midi_mod_wheel_from_float(value:float):
 	value = int(clamp(value*128,0,127))
 	return midi_mod_wheel(value)
 
+def float_color_to_byte_color(r,g,b):
+	return min(255,floor(r*256)),\
+	       min(255,floor(g*256)),\
+	       min(255,floor(b*256))
+
+def float_hsv_to_float_rgb(h, s=1, v=1):
+	h=h%1
+	if s == 0.0: return (v, v, v)
+	i = int(h*6.) # XXX assume int() truncates!
+	f = (h*6.)-i; p,q,t = v*(1.-s), v*(1.-s*f), v*(1.-s*(1.-f)); i%=6
+	if i == 0: return (v, t, p)
+	if i == 1: return (q, v, p)
+	if i == 2: return (p, v, t)
+	if i == 3: return (p, q, v)
+	if i == 4: return (t, p, v)
+	if i == 5: return (v, p, q)
+
+def float_hsv_to_byte_rgb(h, s=1, v=1):
+	s=clamp(s,0,1)
+	v=clamp(v,0,1)
+	return float_color_to_byte_color(*float_hsv_to_float_rgb(h,s,v))
+
 def midi_pitch_bend(coarse:int,fine:int):
 	return bytes([224,coarse,fine])
 
@@ -296,3 +318,55 @@ def remove_semitone_from_scale(scale:list,semitone:int)->None:
 	if semitone==0:
 		return
 	scale[:]=[x for x in scale if x!=semitone]
+
+class DraggableValue:
+	def __init__(
+			self,
+			value=0,
+			value_per_pos=1,
+			min_value=None,
+			max_value=None,
+			min_pos=None,
+			max_pos=None
+			):
+		#This class is for dragging values on the ribbons, for controlling CC midi valueues like a knob
+		#min_pos, max_pos define the zone where a drag must start
+		#min_value, max_value define the min and max value
+		#value_per_pos determines how much value changes with pos
+		self.value=value
+		self.value_per_pos=value_per_pos
+		self.min_value=min_value
+		self.max_value=max_value
+		self.min_pos=min_pos
+		self.max_pos=max_pos
+		self.release()
+
+	def release(self):
+		self.anchor_pos=None
+		self.anchor_value=self.value
+		if self.max_value is not None:self.value=min(self.max_value,self.value)
+		if self.min_value is not None:self.value=max(self.min_value,self.value)
+		return self.value
+
+	def drag(self,pos):
+		if self.anchor_pos is None:
+			self.anchor_pos = pos
+		if self.in_zone(self.anchor_pos):
+			delta_pos = pos - self.anchor_pos
+			self.value = self.anchor_value + self.value_per_pos * delta_pos
+		return self.value
+
+	@property
+	def held(self):
+		return self.anchor_pos is not None
+
+	def in_zone(self,pos):
+		#If a pos is in the drag-start zone
+		if self.min_pos is not None and pos<self.min_pos: return False
+		if self.max_pos is not None and pos>self.max_pos: return False
+		return True
+
+	@property
+	def dragging(self):
+		return self.held and self.in_zone(self.anchor_pos)
+

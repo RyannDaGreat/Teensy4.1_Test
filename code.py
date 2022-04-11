@@ -1,5 +1,6 @@
 #########BIG TODO: WAVEBOX: Make eyehooks longer and flip battery inside!
-
+####TODO: Midi controllers: In a mode where the top is dedicated to 8 buttons you hold down, by holding one and usnig the other ribbon to drag it it sends midi cc values and prints the value and name of controler on display and shows bar for percent while dragging. 
+####This mode only activates when you hold down metal BEFORE pressing a ribbon, and then interacting with it. You have to press metal again to make it go away, or make your first press a note and not on the midi controls.
 
 #TODO: It appears that the pressure calibration tare can CHANGE randomly...even in the middle of playing then exiting....investigate!!
 
@@ -214,6 +215,19 @@ neopixels.draw_pixel_colors(current_scale)
 neopixels.refresh()
 
 
+pixel_controllers_show=True#Are we using the controllers rn?
+pixel_controllers_length=20
+pixel_controllers_start  =neopixels.last - pixel_controllers_length
+pixel_controllers_end    =neopixels.last
+pixel_controllers_value=DraggableValue(
+	value=.5,
+	min_value=0,
+	max_value=1,
+	value_per_pos=.01,
+	min_pos=pixel_controllers_start,
+	max_pos=pixel_controllers_end
+)
+
 def select_patch(index=None):
 	if index is not None:
 		message=midi_cc(channel=100,value=index)
@@ -388,6 +402,9 @@ while True:
 			new_note=value
 			new_note=floor(new_note)
 			remainder=value-new_note
+
+			pixel_controllers_value.drag(position)
+
 			if new_note != note:
 				if note is None:
 					note_on(new_note)
@@ -405,6 +422,7 @@ while True:
 							remove_semitone_from_scale(custom_scale,scale_semitone)
 							display_state()
 
+
 				else:
 					if abs(value-note)>bend_range:
 						note_on(new_note)
@@ -416,6 +434,8 @@ while True:
 			else:
 				pitch_bend(remainder)
 		else:
+			pixel_controllers_value.release()
+
 			if note is not None:
 				gate_off(note)
 				note=None
@@ -424,6 +444,18 @@ while True:
 			last_midi_time=seconds()
 			send_state()
 			neopixels.draw_pixel_colors(current_scale,position=shifted_position,pixels_per_note=pixels_per_note,pixel_offset=get_pixel_offset(),used_custom_scale=custom_scale if edit_custom_scale is not None else None)
+
+			if pixel_controllers_show:
+				#TODO: Turn pixel controllers into objects so we can move all this code somewhere else...
+				if pixel_controllers_value.dragging:
+					neopixels.draw_line(pixel_controllers_start,pixel_controllers_end,r=0,g=64,b=0)
+					neopixels.draw_line(pixel_controllers_start,pixel_controllers_end-floor(pixel_controllers_length*(1-pixel_controllers_value.value)),*float_hsv_to_byte_rgb(seconds())) 
+				elif pixel_controllers_value.held:
+					neopixels.draw_line(pixel_controllers_start,pixel_controllers_end,r=64,g=0,b=0)
+				else:
+					neopixels.draw_line(pixel_controllers_start,pixel_controllers_end,r=0,g=0,b=64)
+
+
 			neopixels.refresh()
 
 		if buttons.metal_button.value and gate:

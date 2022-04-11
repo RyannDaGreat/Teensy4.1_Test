@@ -7,6 +7,10 @@ from urp import *
 
 length=const(125) #Enter the number of neopixels on the lightboard
 
+#First and last are the pixels that are first and last on the ribbon
+first=12
+last=length-5
+
 pin = digitalio.DigitalInOut(board.D30)
 pin.direction = digitalio.Direction.OUTPUT
 
@@ -18,6 +22,7 @@ def draw(data:bytearray):
 
 def refresh():
 	#Sometimes buffer can be mutated, since buffer is a bytearray
+	#TODO: Keep track of old buffer to save a few millis. Only update when the buffer changes.
 	neopixel_write.neopixel_write(pin, buffer)
 
 def write(data):
