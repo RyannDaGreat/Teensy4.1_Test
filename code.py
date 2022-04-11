@@ -51,6 +51,10 @@ def send_state():
 		message+=midi_pitch_bend_from_semitones(midi_message_state['pitch_bend'],-bend_range,bend_range)
 	if 'note_on' in midi_message_state:
 		message+=midi_note_on(midi_message_state['note_on'])
+	if 'midi_cc' in midi_message_state:
+		for channel,value in midi_message_state['midi_cc'].items():
+			value = midi_message_state['midi_cc']
+			message+=midi_cc(channel,value)
 	if 'notes_off' in midi_message_state:
 		message+=b''.join([midi_note_off(note) for note in set(midi_message_state['notes_off'])])
 	if use_pressure:
@@ -81,6 +85,14 @@ def note_off(note):
 def pitch_bend(semitones):
 	semitones+=temp_semitone_shift
 	midi_message_state['pitch_bend']=semitones
+
+def midi_control(channel,value):
+	#value should be a float between 0 and 1. Channel should be an int between 0 and 127
+	value=floor(clamp(value*256,0,255))
+	if 'midi_cc' in midi_message_state:
+		midi_message_state['midi_cc'][channel]=value
+	else:
+		midi_message_state['midi_cc']={channel:value}
 
 buttons.set_green_button_lights(0,0,0,0)
 buttons.metal_button.color=(0,0,0)
@@ -215,18 +227,55 @@ neopixels.draw_pixel_colors(current_scale)
 neopixels.refresh()
 
 
-pixel_controllers_show=True#Are we using the controllers rn?
-pixel_controllers_length=20
-pixel_controllers_start  =neopixels.last - pixel_controllers_length
-pixel_controllers_end    =neopixels.last
-pixel_controllers_value=DraggableValue(
+midi_cc_values=OrderedDict() #Mapping from channel to float
+midi_cc_values[2]=.5
+midi_cc_values[3]=.5
+midi_cc_values[4]=.5
+midi_cc_values[5]=.5
+midi_cc_values[6]=.5
+midi_cc_values[7]=.5
+
+neo_cc_enabled=True#Are we using the controllers rn? Neo_cc stands for neopixel midi control channel
+neo_cc_length=20
+neo_cc_start  =neopixels.last - neo_cc_length
+neo_cc_end    =neopixels.last
+neo_cc_dragger=DraggableValue(
 	value=.5,
 	min_value=0,
 	max_value=1,
-	value_per_pos=.01,
-	min_pos=pixel_controllers_start,
-	max_pos=pixel_controllers_end
+	value_per_pos=.05,
+	min_pos=neo_cc_start,
+	max_pos=neo_cc_end
 )
+
+#TODO: Make this less ugly lol
+neo_cc_selector=SelectableNeopixelRegions()
+neo_cc_selector+=NeopixelRegion(neopixels.first+0 ,neopixels.first+3 ,float_hsv_to_float_rgb(h=0/6,v=1/4,s=1/2),data=0,on_select=lambda:neo_cc_dragger.set_value(midi_cc_values[list(midi_cc_values)[0]]))
+neo_cc_selector+=NeopixelRegion(neopixels.first+3 ,neopixels.first+6 ,float_hsv_to_float_rgb(h=1/6,v=1/4,s=1/2),data=1,on_select=lambda:neo_cc_dragger.set_value(midi_cc_values[list(midi_cc_values)[1]]))
+neo_cc_selector+=NeopixelRegion(neopixels.first+6 ,neopixels.first+9 ,float_hsv_to_float_rgb(h=2/6,v=1/4,s=1/2),data=2,on_select=lambda:neo_cc_dragger.set_value(midi_cc_values[list(midi_cc_values)[2]]))
+neo_cc_selector+=NeopixelRegion(neopixels.first+9 ,neopixels.first+12,float_hsv_to_float_rgb(h=3/6,v=1/4,s=1/2),data=3,on_select=lambda:neo_cc_dragger.set_value(midi_cc_values[list(midi_cc_values)[3]]))
+neo_cc_selector+=NeopixelRegion(neopixels.first+12,neopixels.first+15,float_hsv_to_float_rgb(h=4/6,v=1/4,s=1/2),data=4,on_select=lambda:neo_cc_dragger.set_value(midi_cc_values[list(midi_cc_values)[4]]))
+neo_cc_selector+=NeopixelRegion(neopixels.first+15,neopixels.first+18,float_hsv_to_float_rgb(h=5/6,v=1/4,s=1/2),data=5,on_select=lambda:neo_cc_dragger.set_value(midi_cc_values[list(midi_cc_values)[5]]))
+def neo_cc_draw():
+	if neo_cc_enabled:
+		neo_cc_selector.draw()
+		# channel=list(midi_cc_values)[neo_cc_selector.data]
+		# base_color=(0,0,.1)
+		# _color=(0,0,.1)
+		# neo_cc_dragger.min_pos
+		if neo_cc_selector.data is not None:
+			if neo_cc_dragger.dragging:
+				neopixels.draw_line(neo_cc_start,neo_cc_end,r=0,g=64,b=0)
+				neopixels.draw_line(neo_cc_start,neo_cc_end-floor(neo_cc_length*(1-neo_cc_dragger.value)),*float_hsv_to_byte_rgb(seconds())) 
+			elif neo_cc_dragger.held:
+				neopixels.draw_line(neo_cc_start,neo_cc_end,r=64,g=0,b=0)
+			else:
+				neopixels.draw_line(neo_cc_start,neo_cc_end,r=0,g=0,b=64)
+
+
+
+
+
 
 def select_patch(index=None):
 	if index is not None:
@@ -357,9 +406,9 @@ while True:
 		elif not buttons.metal_button.value and slot_load_mode and green_1_pressed: load_slot(1);              buttons.metal_button.color=(0,0,0); slot_load_mode=False
 		elif not buttons.metal_button.value and slot_load_mode and green_2_pressed: load_slot(2);              buttons.metal_button.color=(0,0,0); slot_load_mode=False
 		elif not buttons.metal_button.value and slot_load_mode and green_3_pressed: load_slot(3);              buttons.metal_button.color=(0,0,0); slot_load_mode=False
-		elif     buttons.metal_button.value and slot_load_mode and green_1_pressed: save_slot(1);load_slot(1); buttons.metal_button.color=(0,0,0); slot_load_mode=False #TODO: Instead of this, make meta-slots - slot sets that are saved in config
-		elif     buttons.metal_button.value and slot_load_mode and green_2_pressed: save_slot(2);load_slot(2); buttons.metal_button.color=(0,0,0); slot_load_mode=False #TODO: Instead of this, make meta-slots - slot sets that are saved in config
-		elif     buttons.metal_button.value and slot_load_mode and green_3_pressed: save_slot(3);load_slot(3); buttons.metal_button.color=(0,0,0); slot_load_mode=False #TODO: Instead of this, make meta-slots - slot sets that are saved in config
+		# elif     buttons.metal_button.value and slot_load_mode and green_1_pressed: save_slot(1);load_slot(1); buttons.metal_button.color=(0,0,0); slot_load_mode=False #TODO: Instead of this, make meta-slots - slot sets that are saved in config
+		# elif     buttons.metal_button.value and slot_load_mode and green_2_pressed: save_slot(2);load_slot(2); buttons.metal_button.color=(0,0,0); slot_load_mode=False #TODO: Instead of this, make meta-slots - slot sets that are saved in config
+		# elif     buttons.metal_button.value and slot_load_mode and green_3_pressed: save_slot(3);load_slot(3); buttons.metal_button.color=(0,0,0); slot_load_mode=False #TODO: Instead of this, make meta-slots - slot sets that are saved in config
 		if slot_load_mode and not buttons.metal_button.value: buttons.metal_button.color=(0,1,0)
 
 
@@ -403,7 +452,9 @@ while True:
 			new_note=floor(new_note)
 			remainder=value-new_note
 
-			pixel_controllers_value.drag(position)
+			if neo_cc_enabled:
+				neo_cc_dragger.drag(position)
+				neo_cc_selector.select(position)
 
 			if new_note != note:
 				if note is None:
@@ -434,7 +485,7 @@ while True:
 			else:
 				pitch_bend(remainder)
 		else:
-			pixel_controllers_value.release()
+			neo_cc_dragger.release()
 
 			if note is not None:
 				gate_off(note)
@@ -444,18 +495,7 @@ while True:
 			last_midi_time=seconds()
 			send_state()
 			neopixels.draw_pixel_colors(current_scale,position=shifted_position,pixels_per_note=pixels_per_note,pixel_offset=get_pixel_offset(),used_custom_scale=custom_scale if edit_custom_scale is not None else None)
-
-			if pixel_controllers_show:
-				#TODO: Turn pixel controllers into objects so we can move all this code somewhere else...
-				if pixel_controllers_value.dragging:
-					neopixels.draw_line(pixel_controllers_start,pixel_controllers_end,r=0,g=64,b=0)
-					neopixels.draw_line(pixel_controllers_start,pixel_controllers_end-floor(pixel_controllers_length*(1-pixel_controllers_value.value)),*float_hsv_to_byte_rgb(seconds())) 
-				elif pixel_controllers_value.held:
-					neopixels.draw_line(pixel_controllers_start,pixel_controllers_end,r=64,g=0,b=0)
-				else:
-					neopixels.draw_line(pixel_controllers_start,pixel_controllers_end,r=0,g=0,b=64)
-
-
+			neo_cc_draw()
 			neopixels.refresh()
 
 		if buttons.metal_button.value and gate:

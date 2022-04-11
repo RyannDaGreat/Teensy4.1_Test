@@ -28,10 +28,14 @@ def attempt_to_mount():
 # attempt_to_mount() #TODO: When we fix the power issue, we can bring this back to automatic mode. For now, its triggered in a dialog from code.py
 
 import time
+import math
 from time import sleep
 from time import monotonic_ns
 from micropython import const
 from math import floor,ceil
+
+pi =3.1415926535
+tau=2*pi
 
 def millis():
 	return monotonic_ns()//1000000
@@ -351,7 +355,7 @@ class DraggableValue:
 	def drag(self,pos):
 		if self.anchor_pos is None:
 			self.anchor_pos = pos
-		if self.in_zone(self.anchor_pos):
+		if self.__contains__(self.anchor_pos):
 			delta_pos = pos - self.anchor_pos
 			self.value = self.anchor_value + self.value_per_pos * delta_pos
 		return self.value
@@ -360,7 +364,7 @@ class DraggableValue:
 	def held(self):
 		return self.anchor_pos is not None
 
-	def in_zone(self,pos):
+	def __contains__(self,pos):
 		#If a pos is in the drag-start zone
 		if self.min_pos is not None and pos<self.min_pos: return False
 		if self.max_pos is not None and pos>self.max_pos: return False
@@ -368,5 +372,88 @@ class DraggableValue:
 
 	@property
 	def dragging(self):
-		return self.held and self.in_zone(self.anchor_pos)
+		return self.held and self.anchor_pos in self
 
+	def set_value(self,value):
+		self.value=value
+
+class NeopixelRegion:
+	def __init__(self,start,end,color_on,color_off=None,on_select=None,data=None):
+		#Colors are float colors
+		#Start and end mark where the region is, measured in neopixels
+		#Used for MIDI CC control, not for regular notes (it would be too slow right now - this implementation is not super efficient)
+		self.start=start
+		self.end  =end
+
+		if color_off is None:
+			r,g,b=color_on
+			color_off=(r/6,g/6,b/6)
+
+		self.color_on =float_color_to_byte_color(*color_on )
+		self.color_off=float_color_to_byte_color(*color_off)
+
+		self.on_select=on_select if on_select is not None else lambda:None
+
+		self.data=data #Extra data to store here
+
+	def __contains__(self,pos):
+		return self.start<=pos<=self.end
+
+	def draw(self,on=False):
+		import lightboard.neopixels as neopixels
+		#TODO: Can be optimized by directly saving the bytearray produced
+		animate=True
+		if not animate:
+			r,g,b=self.color_on if on else self.color_off
+		else:
+			if not on:
+				r,g,b=self.color_off
+			else:
+				#Interpolate between color on and off in a blinking fashion
+				frequency=1
+				alpha=(math.sin(seconds()*frequency*tau)+1)/2
+				alpha=blend(alpha,1,.5)#Min alpha
+				r,g,b = [floor(blend(x,y,alpha)) for x,y in zip(self.color_off,self.color_on)]
+		start=self.start
+		end  =self.end-1 #Don't overdraw with respect to when pos selects us
+		neopixels.draw_line(start,end,r,g,b)
+
+class SelectableNeopixelRegions:
+	def __init__(self,regions=None):
+		#Regions is a list of NeopixelRegion instances
+		self.regions=regions if regions is not None else []
+		self.selected=None
+
+		assert isinstance(self.regions,list)
+		assert all(isinstance(x,NeopixelRegion) for x in self.regions)
+
+	def __contains__(self,pos):
+		return any(pos in x for x in self.regions)
+
+	def draw(self):
+		for region in self.regions:
+			if region is self.selected:
+				region.draw(on=True)
+			else:
+				region.draw(on=False)
+
+	def select(self,pos):
+		selected=None
+		for region in self.regions:
+			if pos in region:
+				selected=region
+		if selected is not None and selected!=self.selected:
+			selected.on_select()
+		self.selected=selected
+
+	def __iadd__(self,region):
+		#Add a region to regions
+		self.regions.append(region)
+		return self
+
+	@property
+	def data(self):
+		if self.selected is not None:
+			return self.selected.data
+		else:
+			return None
