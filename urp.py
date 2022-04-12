@@ -442,9 +442,12 @@ class SelectableNeopixelRegions:
 		for region in self.regions:
 			if pos in region:
 				selected=region
+		triggered=False
 		if selected is not None and selected!=self.selected:
-			selected.on_select()
+			triggered=True
 		self.selected=selected
+		if triggered:
+			selected.on_select()
 
 	def __iadd__(self,region):
 		#Add a region to regions

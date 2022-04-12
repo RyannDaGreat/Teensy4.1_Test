@@ -2,6 +2,15 @@
 ####TODO: Midi controllers: In a mode where the top is dedicated to 8 buttons you hold down, by holding one and usnig the other ribbon to drag it it sends midi cc values and prints the value and name of controler on display and shows bar for percent while dragging. 
 ####This mode only activates when you hold down metal BEFORE pressing a ribbon, and then interacting with it. You have to press metal again to make it go away, or make your first press a note and not on the midi controls.
 
+
+#Press metal button + green 1 then metal + green 1 (without letting go of metal) while playing to edit midi cc channels
+#Metal+green 1 then either green 1,2, or 3 enters a slot which will autosave scale etc
+#Green1+green3 will shift scale up or down
+#green 1 or green 3 will temporarily shift 1 semitone
+#metal + green 2 will change scale
+#metal + green 3 will change num pixels per note
+
+
 #TODO: It appears that the pressure calibration tare can CHANGE randomly...even in the middle of playing then exiting....investigate!!
 
 from lightboard.config import config
@@ -151,8 +160,10 @@ def display_state():
 	extra_text=''
 
 	if edit_custom_scale is not None:
-		extra_text='Editing Custom Scale\nUse ribbons to add or remove notes\nHold green 2 to play notes\n'
+		extra_text+='Editing Custom Scale\nUse ribbons to add or remove notes\nHold green 2 to play notes\n'
 		extra_text+="Custom Scale Semitones:\n   %s "%' '.join([str(x) for x in custom_scale])+"\n\n";
+	if neo_cc_enabled and neo_cc_get_channel() is not None:
+		extra_text+='Midi CC %i'%neo_cc_get_channel()+':  '+midi_cc_descriptions[neo_cc_get_channel()]+'\n\n'
 	display.set_text(extra_text+"Scale: "+current_scale_name+\
 		"\nKey: %i  aka  %s %i"%(semitone_shift,key_names[semitone_shift%12],semitone_shift//12)+\
 		"\n\nPixel Offset: %i"%get_pixel_offset()+\
@@ -235,6 +246,14 @@ midi_cc_values[5]=.5
 midi_cc_values[6]=.5
 midi_cc_values[7]=.5
 
+midi_cc_descriptions=OrderedDict()
+midi_cc_descriptions[2]='PWM'
+midi_cc_descriptions[3]='Chorus'
+midi_cc_descriptions[4]='Squareness'
+midi_cc_descriptions[5]='Reverb/Release'
+midi_cc_descriptions[6]='Legato'
+midi_cc_descriptions[7]='Filter'
+
 #Metal+1 then (hold metal) metal+1 to enable
 neo_cc_enabled=False#Are we using the controllers rn? Neo_cc stands for neopixel midi control channel
 neo_cc_length=20
@@ -254,12 +273,17 @@ def neo_cc_get_channel():
 	return list(midi_cc_values)[neo_cc_selector.data]
 #TODO: Make this less ugly lol
 neo_cc_selector=SelectableNeopixelRegions()
-neo_cc_selector+=NeopixelRegion(neopixels.first+0 ,neopixels.first+3 ,float_hsv_to_float_rgb(h=0/6,v=1/4,s=1/2),data=0,on_select=lambda:neo_cc_dragger.set_value(midi_cc_values[list(midi_cc_values)[0]]))
-neo_cc_selector+=NeopixelRegion(neopixels.first+3 ,neopixels.first+6 ,float_hsv_to_float_rgb(h=1/6,v=1/4,s=1/2),data=1,on_select=lambda:neo_cc_dragger.set_value(midi_cc_values[list(midi_cc_values)[1]]))
-neo_cc_selector+=NeopixelRegion(neopixels.first+6 ,neopixels.first+9 ,float_hsv_to_float_rgb(h=2/6,v=1/4,s=1/2),data=2,on_select=lambda:neo_cc_dragger.set_value(midi_cc_values[list(midi_cc_values)[2]]))
-neo_cc_selector+=NeopixelRegion(neopixels.first+9 ,neopixels.first+12,float_hsv_to_float_rgb(h=3/6,v=1/4,s=1/2),data=3,on_select=lambda:neo_cc_dragger.set_value(midi_cc_values[list(midi_cc_values)[3]]))
-neo_cc_selector+=NeopixelRegion(neopixels.first+12,neopixels.first+15,float_hsv_to_float_rgb(h=4/6,v=1/4,s=1/2),data=4,on_select=lambda:neo_cc_dragger.set_value(midi_cc_values[list(midi_cc_values)[4]]))
-neo_cc_selector+=NeopixelRegion(neopixels.first+15,neopixels.first+18,float_hsv_to_float_rgb(h=5/6,v=1/4,s=1/2),data=5,on_select=lambda:neo_cc_dragger.set_value(midi_cc_values[list(midi_cc_values)[5]]))
+
+def neo_cc_on_select(index):
+	neo_cc_dragger.set_value(midi_cc_values[list(midi_cc_values)[index]])
+	display_state()
+
+neo_cc_selector+=NeopixelRegion(neopixels.first+0 ,neopixels.first+3 ,float_hsv_to_float_rgb(h=0/6,v=1/4,s=1/2),data=0,on_select=lambda:neo_cc_on_select(0))
+neo_cc_selector+=NeopixelRegion(neopixels.first+3 ,neopixels.first+6 ,float_hsv_to_float_rgb(h=1/6,v=1/4,s=1/2),data=1,on_select=lambda:neo_cc_on_select(1))
+neo_cc_selector+=NeopixelRegion(neopixels.first+6 ,neopixels.first+9 ,float_hsv_to_float_rgb(h=2/6,v=1/4,s=1/2),data=2,on_select=lambda:neo_cc_on_select(2))
+neo_cc_selector+=NeopixelRegion(neopixels.first+9 ,neopixels.first+12,float_hsv_to_float_rgb(h=3/6,v=1/4,s=1/2),data=3,on_select=lambda:neo_cc_on_select(3))
+neo_cc_selector+=NeopixelRegion(neopixels.first+12,neopixels.first+15,float_hsv_to_float_rgb(h=4/6,v=1/4,s=1/2),data=4,on_select=lambda:neo_cc_on_select(4))
+neo_cc_selector+=NeopixelRegion(neopixels.first+15,neopixels.first+18,float_hsv_to_float_rgb(h=5/6,v=1/4,s=1/2),data=5,on_select=lambda:neo_cc_on_select(5))
 def neo_cc_toggle_enabled():
 	global neo_cc_enabled
 	neo_cc_enabled=not neo_cc_enabled
@@ -283,10 +307,6 @@ def neo_cc_draw():
 				background=(64,0,32)
 			neopixels.draw_line(neo_cc_start,neo_cc_end,*background)
 			neopixels.draw_line(neo_cc_start,neo_cc_end-floor(neo_cc_length*(1-neo_cc_dragger.value)),*foreground) 
-
-
-
-
 
 
 def select_patch(index=None):
