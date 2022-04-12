@@ -9,7 +9,12 @@
 #green 1 or green 3 will temporarily shift 1 semitone
 #metal + green 2 will change scale
 #metal + green 3 will change num pixels per note
-
+#Custom scale mode:
+#   use the two ribbons to select or deselect notes from the custom scale
+#   hold metal button or green button 2 (either works) to play a note without selecting or deselecting it
+#      (metal because who wants to select notes while shifting? nobody lol)
+#   holding green 2 then pressing green 1 and green 3 will shift the scale's colors.
+#   the display shows you which notes are in the custom scale as you play it, along with how they differ from a major scale
 
 #TODO: It appears that the pressure calibration tare can CHANGE randomly...even in the middle of playing then exiting....investigate!!
 
@@ -158,20 +163,28 @@ def switch_scale(silent=False):
 use_pressure=False
 def display_state():
 	extra_text=''
+	custom_mode = edit_custom_scale is not None
 
-	if edit_custom_scale is not None:
-		extra_text+='Editing Custom Scale\nUse ribbons to add or remove notes\nHold green 2 to play notes\n'
-		extra_text+="Custom Scale Semitones:\n   %s "%' '.join([str(x) for x in custom_scale])+"\n\n";
+	if custom_mode:
+		extra_text+='EDITING CUSTOM SCALE\nUse ribbons to add or remove notes\nHold green 2 to play notes\n'
+		extra_text+="Custom Scale Semitones:\n   %s "%' '.join([str(x) for x in custom_scale])+"\n"
+		extra_text+='aka major +['+' '.join(map(str,sorted(set(custom_scale)-set(major_scale))))+'], -['+' '.join(map(str,sorted(set(major_scale)-set(custom_scale))))+']'
+		extra_text+='\n'
 	if neo_cc_enabled and neo_cc_get_channel() is not None:
 		extra_text+='Midi CC %i'%neo_cc_get_channel()+':  '+midi_cc_descriptions[neo_cc_get_channel()]+'\n\n'
-	display.set_text(extra_text+"Scale: "+current_scale_name+\
-		"\nKey: %i  aka  %s %i"%(semitone_shift,key_names[semitone_shift%12],semitone_shift//12)+\
-		"\n\nPixel Offset: %i"%get_pixel_offset()+\
-		'\nPixels Per Note: %i'%pixels_per_note+\
-		'\n\nUsing Pressure: %s'%('Yes' if use_pressure else 'No')+\
-		'\n\nSlot Number: %i'%current_slot_num+\
-		"\n\nScale Semitones:\n   %s "%' '.join([str(x) for x in current_scale])+\
-		'\n\nPress all buttons to exit')
+
+	text=extra_text
+	if not custom_mode: text+="Scale: "+current_scale_name
+	text+="\nKey: %i  aka  %s %i"%(semitone_shift,key_names[semitone_shift%12],semitone_shift//12)
+	text+="\n\nPixel Offset: %i"%get_pixel_offset()
+	text+='\nPixels Per Note: %i'%pixels_per_note
+	text+='\n\nUsing Pressure: %s'%('Yes' if use_pressure else 'No')
+	text+='\n\nSlot Number: %i'%current_slot_num
+	if not custom_mode: text+="\n\nScale Semitones:\n   %s "%' '.join([str(x) for x in current_scale])
+	text+='\n\nPress all buttons to exit'
+
+	display.set_text(text)
+
 
 #SETTINGS START:
 pixels_per_note=3
@@ -361,7 +374,7 @@ while True:
 			break
 		elif option=='Brightness':
 			def preview_brightness():
-				neopixels.draw_pixel_colors()
+				neopixels.draw_pixel_colors(current_scale)
 				neopixels.refresh()
 			widgets.edit_config_int('neopixels brightness',on_update=preview_brightness,min_value=1,exponential=True,message='Neopixel Brightness\nLarger values are dimmer\n')
 		elif option=='Calibrate Ribbons':
@@ -458,10 +471,29 @@ while True:
 				save_slot()
 				display_state()
 
-		if buttons.green_button_1.value and not buttons.metal_button.value:
-			temp_semitone_shift=1
-		if buttons.green_button_3.value and not buttons.metal_button.value:
-			temp_semitone_shift=-1
+		if not buttons.metal_button.value:
+			if edit_custom_scale is None or not buttons.green_button_2.value:
+				if buttons.green_button_1.value:
+					temp_semitone_shift=1
+				if buttons.green_button_3.value:
+					temp_semitone_shift=-1
+			else:
+				#Scale shifting: this was really tricky to get right, but now it's right.
+				#You can shift the scale without changing which parts of the ribbon play what note - essentially just shifting colors.
+				#However, the tricky part is that it does this without shifting the colors directly and instead modifies the pixel offset, semitone shift and scale all at once
+				if green_3_pressed:
+					last_note=custom_scale[-2]
+					custom_scale[:]=[0]+[x+(12-last_note) for x in custom_scale[:-1]]
+					pixel_offset+=pixels_per_note*(12-last_note)
+					semitone_shift-=(12-last_note)
+					display_state()
+				if green_1_pressed:
+					first_note=custom_scale[1]
+					custom_scale[:]=[x-first_note for x in custom_scale[1:]]+[12]
+					pixel_offset-=pixels_per_note*first_note
+					semitone_shift+=first_note
+					display_state()
+
 
 		if gate:
 			gate_timer.tic()
@@ -501,7 +533,7 @@ while True:
 					pitch_bend(remainder)
 					note=new_note
 
-					if edit_custom_scale is not None and not buttons.green_button_2.value:
+					if edit_custom_scale is not None and not (buttons.metal_button.value or buttons.green_button_2.value):
 						scale_semitone=new_note
 						if reading.ribbon==ribbons.ribbon_a:
 							#Add a note to the scale
