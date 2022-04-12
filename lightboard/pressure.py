@@ -257,9 +257,10 @@ def refresh():
 	else:
 		if not SILENT_ERRORS:
 			# If you're getting this a lot, it probably means uart.readline() timed out...
+			# Pro tip: This often means that the nano isn't getting enough power. For example, when all the neopixels are on full brightness.
 			import lightboard.display as display
 			error_blink()
-			display.set_text("NANO SENT NO DATA (EMPTY LINE)")
+			display.set_text("NANO SENT NO DATA (EMPTY LINE)\nIs the nano getting enough power?")
 
 def get_calibration_weight():
 	if calibration_weight_address not in config:
