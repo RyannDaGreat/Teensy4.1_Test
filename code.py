@@ -604,6 +604,9 @@ while True:
 
 			try:
 				if edit_custom_scale is not None:
+					while current_scale_name!='Custom':
+						#Switch scale to custom scale. This will be less janky after I implement a switch_scale(scale_name) function
+						switch_scale()
 					config['scales custom 0']=custom_scale
 					display.set_text('Saved custom scale!')
 			except:
