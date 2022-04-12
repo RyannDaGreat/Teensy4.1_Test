@@ -251,7 +251,7 @@ neopixels.draw_pixel_colors(current_scale)
 neopixels.refresh()
 
 
-midi_cc_values=OrderedDict() #Mapping from channel to float
+midi_cc_values={}#OrderedDict() Can't be ordered dict if we save them in config...#Mapping from channel to float
 midi_cc_values[2]=.5
 midi_cc_values[3]=.5
 midi_cc_values[4]=.5
@@ -259,13 +259,15 @@ midi_cc_values[5]=.5
 midi_cc_values[6]=.5
 midi_cc_values[7]=.5
 
-midi_cc_descriptions=OrderedDict()
+midi_cc_descriptions={}#OrderedDict()
 midi_cc_descriptions[2]='PWM'
 midi_cc_descriptions[3]='Chorus'
 midi_cc_descriptions[4]='Squareness'
 midi_cc_descriptions[5]='Reverb/Release'
 midi_cc_descriptions[6]='Legato'
 midi_cc_descriptions[7]='Filter'
+
+midi_cc_channels=sorted(midi_cc_descriptions)
 
 #Metal+1 then (hold metal) metal+1 to enable
 neo_cc_enabled=False#Are we using the controllers rn? Neo_cc stands for neopixel midi control channel
@@ -283,12 +285,12 @@ neo_cc_dragger=DraggableValue(
 def neo_cc_get_channel():
 	if neo_cc_selector.data is None:
 		return None
-	return list(midi_cc_values)[neo_cc_selector.data]
+	return midi_cc_channels[neo_cc_selector.data]
 #TODO: Make this less ugly lol
 neo_cc_selector=SelectableNeopixelRegions()
 
 def neo_cc_on_select(index):
-	neo_cc_dragger.set_value(midi_cc_values[list(midi_cc_values)[index]])
+	neo_cc_dragger.set_value(midi_cc_values[midi_cc_channels[index]])
 	display_state()
 
 neo_cc_selector+=NeopixelRegion(neopixels.first+0 ,neopixels.first+3 ,float_hsv_to_float_rgb(h=0/6,v=1/4,s=1/2),data=0,on_select=lambda:neo_cc_on_select(0))
@@ -303,7 +305,7 @@ def neo_cc_toggle_enabled():
 def neo_cc_draw():
 	if neo_cc_enabled:
 		neo_cc_selector.draw()
-		# channel=list(midi_cc_values)[neo_cc_selector.data]
+		# channel=midi_cc_channels[neo_cc_selector.data]
 		# base_color=(0,0,.1)
 		# _color=(0,0,.1)
 		# neo_cc_dragger.min_pos
@@ -321,7 +323,95 @@ def neo_cc_draw():
 			neopixels.draw_line(neo_cc_start,neo_cc_end,*background)
 			neopixels.draw_line(neo_cc_start,neo_cc_end-floor(neo_cc_length*(1-neo_cc_dragger.value)),*foreground) 
 
+def get_current_song_state():
+	#Get slots, custom scale, midi CC values, instrument
+	output={}
+	output['current_patch_index']=current_patch_index
+	output['slots'              ]=slots              
+	output['current_slot_num'   ]=current_slot_num   
+	output['midi_cc_values'     ]=midi_cc_values     
+	output['custom_scale'       ]=custom_scale       
+	return output
 
+def load_song_state(song_state):
+	#TODO check to make sure these things are in there so when we add more stuff in the future it doesn't crash
+	_current_patch_index=song_state['current_patch_index']
+	_slots              =song_state['slots'              ]
+	_current_slot_num   =song_state['current_slot_num'   ]
+	_midi_cc_values     =song_state['midi_cc_values'     ]
+	_custom_scale       =song_state['custom_scale'       ]
+
+
+	select_patch(_current_patch_index)
+
+	global custom_scale
+	custom_scale=_custom_scale
+
+	global slots
+	slots=_slots
+	load_slot(_current_slot_num)
+
+	for channel,value in _midi_cc_values.items():
+		midi_control(channel,value)
+
+current_song_state_name=None
+
+def save_current_song_state():
+	#TODO: Make these use individual files instead of saving in the config, that way we can 
+
+	available_names=sorted(config.get_with_default('song_states',{}))
+	default_available_names=set('A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 0 1 2 3 4 5 6 7 8 9'.split())
+	available_names+=sorted(set(default_available_names)-set(available_names))
+
+	state=get_current_song_state()
+
+	try:
+		name=widgets.input_select(options=available_names,prompt='Saving Song State\nPlease choose a name:',can_cancel=True)
+		if not widgets.input_yes_no('Are you sure you want to load:\n'+name+'?'):
+			raise KeyboardInterrupt
+	except KeyboardInterrupt:
+		display.set_text('Cancelled saving song state')
+		sleep(.5)
+		return
+
+	config['song_states '+name]=state
+
+	global current_song_state_name
+	current_song_state_name=name
+
+	display.set_text('Song state saved!')
+
+def load_selected_song_state():
+	if 'song_states' not in config:
+		config.get_with_default('song_states',{})
+
+	available_names=sorted(config['song_states'])
+
+	if not len(available_names):
+		display.set_text('There are no saved song states!\nAborting...')
+		sleep(.5)
+		return
+
+	try:
+		name=widgets.input_select(options=available_names,prompt='Loading Song State\nPlease choose a name:',can_cancel=True)
+		if not widgets.input_yes_no('Are you sure you want to save:\n'+name+'?'):
+			raise KeyboardInterrupt
+	except KeyboardInterrupt:
+		display.set_text('Cancelled loading song state')
+		sleep(.5)
+		return
+
+	state=config.get_with_default('song_states '+name,get_current_song_state())
+	load_song_state(state)
+
+	global current_song_state_name
+	current_song_state_name=name
+
+	display.set_text('Song state loaded!')
+	sleep(.5)
+
+
+current_patch_index=0 #The default patch number is always 0
 def select_patch(index=None):
 	if index is not None:
 		message=midi_cc(channel=100,value=index)
@@ -330,6 +420,9 @@ def select_patch(index=None):
 		for _ in range(4):
 			transceiver.send(message,fast=fast)
 			sleep(.05)
+
+		global current_patch_index
+		current_patch_index=index
 	else:
 		options = OrderedDict()
 
@@ -354,11 +447,15 @@ while True:
 
 	while True:
 		option=widgets.input_select(
-			['Play','Play Without Pressure','Edit Custom Scale','Calibrate Ribbons','Calibrate Pressure','Brightness','Jiggle Mod Wheel','Select Patch'],
+			['Play','Play Without Pressure','Edit Custom Scale','Calibrate Ribbons','Calibrate Pressure','Brightness','Jiggle Mod Wheel','Load Song State','Save Song State','Select Patch'],
 			# prompt="Please choose new option\n    Old option: "+repr(config['weeble wobble wooble'])+'\n'+repr(config),
 			prompt='\nLightWave - Choose what to do:',
 			can_cancel=False,
 			must_confirm=False)
+		if option=='Load Song State':
+			load_selected_song_state()
+		if option=='Save Song State':
+			save_current_song_state()
 		if option=='Select Patch':
 			select_patch()
 			break
