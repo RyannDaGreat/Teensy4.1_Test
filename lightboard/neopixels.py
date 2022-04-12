@@ -96,7 +96,7 @@ def display_line(start,end,r=63,g=63,b=63):
 
 
 ################################ HIGH LEVEL FUNCTIONS BELOW #################################
-c=[0,.15,.4,5]
+c=[0,.3,.8,5]
 old_lightwave_new_colors=[
 					(c[3],c[3],c[3]),#5
 					(c[1],c[1],c[2]),
