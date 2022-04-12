@@ -350,7 +350,7 @@ def select_patch(index=None):
 while True:
 	use_pressure=True
 	edit_custom_scale=None #Either None or the index of a custom scale. Right now there's only 1 custom scale but this might change.
-
+	slot_load_mode=False
 
 	while True:
 		option=widgets.input_select(
@@ -620,3 +620,4 @@ while True:
 			sleep(.25)
 			break
 		
+			slot_load_mode=False #If we pressed metal and button 1 while trying to exit, we might have set slot_load_mode True
