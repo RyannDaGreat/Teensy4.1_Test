@@ -139,7 +139,6 @@ def draw_pixel_colors(
 	pixels_per_note  = None,
 	num_pixels       = length,
 	brightness       = None,
-	offset           = 0,
 	position         = None, #Assumed to be shifted by pixel_offset
 	extra_brightness = 3,
 	touch_color      = (1,1,1),
@@ -187,11 +186,16 @@ def draw_pixel_colors(
 		note_index=floor(position/pixels_per_note)
 		highlight_note(note_index)
 
+
+	def circ_shift(array,offset):
+		offset%=len(array)
+		return array[offset:]+array[:offset]
+
 	data=data*(num_pixels*3//len(data)+2)
-	data=data[offset:][:3*num_pixels]
-	data = data[3*(pixel_offset%pixels_per_scale):]+data[:3*(pixel_offset%pixels_per_scale)]
+	data = circ_shift(data, 3*(pixel_offset%pixels_per_scale))
+	
 	if position is not None:
-		byte_index=int(position-pixel_offset)*3
+		byte_index=floor(position-pixel_offset)*3
 		if byte_index>=0 and byte_index<=len(data)-3:
 			#Make the individual pixel we're touching glow
 			data[byte_index:byte_index+3]=float_color_to_bytes(*touch_color)
