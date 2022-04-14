@@ -158,31 +158,52 @@ class Ribbon:
 		return reading
 	
 	def run_calibration(self,samples_per_pixel=25):
-		def ask_to_try_again():
-			if widgets.input_yes_no("Would you like to try calibrating again?"):
-				self.run_calibration(samples_per_pixel)
-
-
 		import lightboard.display as display
 		import lightboard.neopixels as neopixels
 		import lightboard.buttons as buttons
 		import lightboard.widgets as widgets
 
-		dual_touch_top_to_neopixel_calibration     = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=self.dual_touch_top_to_neopixel_calibration    .file_path,auto_load=False)
-		dual_touch_bot_to_neopixel_calibration     = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=self.dual_touch_bot_to_neopixel_calibration    .file_path,auto_load=False)
-		single_touch_to_neopixel_calibration       = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=self.single_touch_to_neopixel_calibration      .file_path,auto_load=False)
-		cheap_single_touch_to_neopixel_calibration = HistogramFitter(bin_size=self.RIB_BIN_SIZE,file_path=self.cheap_single_touch_to_neopixel_calibration.file_path,auto_load=False)
+		buttons.metal_press_viewer.value #Reset it - so it doesn't immediately press by accident
+
+		def ask_to_try_again():
+			if widgets.input_yes_no("Would you like to try calibrating again?"):
+				self.run_calibration(samples_per_pixel)
+
+		start_from_scratch = True # widgets.input_yes_no('Start from scratch?\nNo: Modify current calibration\nYes: Create entirely new calibration')
+
+		dual_touch_top_to_neopixel_calibration     = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=self.dual_touch_top_to_neopixel_calibration    .file_path,auto_load=not start_from_scratch)
+		dual_touch_bot_to_neopixel_calibration     = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=self.dual_touch_bot_to_neopixel_calibration    .file_path,auto_load=not start_from_scratch)
+		single_touch_to_neopixel_calibration       = HistogramFitter(bin_size=self.ADS_BIN_SIZE,file_path=self.single_touch_to_neopixel_calibration      .file_path,auto_load=not start_from_scratch)
+		cheap_single_touch_to_neopixel_calibration = HistogramFitter(bin_size=self.RIB_BIN_SIZE,file_path=self.cheap_single_touch_to_neopixel_calibration.file_path,auto_load=not start_from_scratch)
 
 		buttons.metal_button.color=(255,0,255)
 
-		display.set_text('Running calibration on ribbon '+self.name+'\nPlease press the glowing green buttons until\nthe red dot is barely on the ribbon')
-		buttons.set_green_button_lights(1,1,0,0)
-		button_press_next_neopixel=buttons.ButtonPressViewer(buttons.green_button_1)
-		button_press_prev_neopixel=buttons.ButtonPressViewer(buttons.green_button_2)
+		def show_instructions():
+			display.set_text('Running calibration on ribbon '+self.name+'\nPlease press the glowing green buttons until\nthe red dot is barely on the ribbon')
+			buttons.set_green_button_lights(1,1,0,0)
+		show_instructions()
 
+		button_press_next_neopixel=buttons.ButtonPressViewer(buttons.green_button_1)
+		button_press_prev_neopixel=buttons.ButtonPressViewer(buttons.green_button_3)
+
+		def display_neopixel_calibration(cursor_index,r,g,b,highlighted_pixels=[]):
+			nonlocal calibrated_pixels
+
+			neopixels.draw_all_off()
+
+			for pixel in highlighted_pixels:
+				neopixels.draw_dot(pixel,0,10,0)
+
+			neopixels.draw_dot(cursor_index,r,g,b)
+			neopixels.refresh()
 
 		i=0
-		neopixels.display_dot(i,63,0,0)
+		i=neopixels.first
+
+		display_neopixel_calibration(i,63,0,0)
+
+		buttons.metal_press_viewer.value #Reset it - so it doesn't immediately press by accident
+
 		while True:
 			reading=self.cheap_single_touch_reading()
 			if reading.gate:
@@ -197,60 +218,102 @@ class Ribbon:
 				refresh_flag=True
 			if refresh_flag:
 				i=min(neopixels.length-1,max(0,i))
-				neopixels.display_dot(i,63,0,0)
+				display_neopixel_calibration(i,63,0,0)
 
 			if buttons.metal_press_viewer.value:
 				if widgets.input_yes_no("Do you want to cancel calibration?\n(All progress will be lost)"):
+					#NOTE: This code block is duplicated!
 					ask_to_try_again()
 					return
+				else:
+					show_instructions()
 
 
 		button_press_skip    =buttons.ButtonPressViewer(buttons.green_button_1)
-		button_press_back    =buttons.ButtonPressViewer(buttons.green_button_2)
-		button_press_finished=buttons.ButtonPressViewer(buttons.green_button_3)
+		button_press_back    =buttons.ButtonPressViewer(buttons.green_button_3)
+		button_press_finished=buttons.ButtonPressViewer(buttons.green_button_2)
 		buttons.set_green_button_lights(1,1,0,0)
 
-		display.set_text('Running calibration on ribbon '+self.name+'\nPlease press cyan dots on ribbon\nuntil they become orange\nPress the 3rd green button when you\'re done\n(If the 3rd green button isnt lit, calibrate at least two points)\nPress button 1 to skip the current dot\nPress button 2 to go back a dot')
+		def show_instructions():
+			display.set_text('Running calibration on ribbon '+self.name+'\nPlease press cyan dots on ribbon\nuntil they become orange\nPress the 2rd green button when you\'re done\n(If the 2rd green button isnt lit, calibrate at least two points)\nPress button 1 to skip the current dot\nPress button 3 to go back a dot')
+		show_instructions()
+
 		finished=False
-		num_pixels_calibrated=0 #We need at least two to be useful...
+		calibrated_pixels=set()
+
 		while not finished:
+
 			i=max(0,min(i,neopixels.length-1))
-			neopixels.display_dot(i,0,63,63)
+
+			display_neopixel_calibration(i,0,63,63,calibrated_pixels)
+
+
+			dual_a_samples=[]
+			dual_b_samples=[]
+			single_samples=[]
+			cheap_samples =[]
 			pixel_num_samples=0
+
+			buttons.metal_press_viewer.value #Reset it - so it doesn't immediately press by accident
+
 			while True:
-				buttons.green_button_3.light=num_pixels_calibrated>=2
-				if buttons.metal_button.value:
+				buttons.green_button_3.light=len(calibrated_pixels)>=2
+				if buttons.metal_press_viewer.value:
 					if widgets.input_yes_no("Do you want to cancel calibration?\n(All progress will be lost)"):
+						#NOTE: This code block is duplicated!
 						ask_to_try_again()
 						return
+					else:
+						show_instructions()
 				if button_press_skip.value:
 					break
 				if button_press_back.value:
 					i-=2
 					break
-				if button_press_finished.value and num_pixels_calibrated>=2:
-					if widgets.input_yes_no("Are you sure your're done\ncalibrating this ribbon?"):
+				if button_press_finished.value and len(calibrated_pixels)>=2:
+					if widgets.input_yes_no("Do you want to test your calibration?\nYes: Test it!\nNo: I'm done calibrating!"):
+						#This UI is a bit janky....should use better messages. But whatevs...this is just calibration after all...
+						self.test_smooth_demo(single_touch_to_neopixel_calibration,dual_touch_top_to_neopixel_calibration,dual_touch_bot_to_neopixel_calibration)
+						show_instructions()
+					elif widgets.input_yes_no("Are you sure your're done\ncalibrating this ribbon?"):
 						finished=True
 						break
+					else:
+						show_instructions()
+
+				if len(cheap_samples)>=samples_per_pixel:
+					dual_touch_top_to_neopixel_calibration    .add_sample(median(dual_a_samples),i)
+					dual_touch_bot_to_neopixel_calibration    .add_sample(median(dual_b_samples),i)
+					single_touch_to_neopixel_calibration      .add_sample(median(single_samples),i)
+					cheap_single_touch_to_neopixel_calibration.add_sample(median(cheap_samples ),i)
+					calibrated_pixels.add(i)
+					break
+
 				if self.cheap_single_touch_reading().gate:
 					with neopixels.TemporarilyTurnedOff():
 						cheap_single_touch_reading=self.cheap_single_touch_reading()
 						single_touch_reading      =self.single_touch_reading()
 						dual_touch_reading        =self.dual_touch_reading()
 
-						dual_touch_top_to_neopixel_calibration    .add_sample(dual_touch_reading        .raw_a    ,i)
-						dual_touch_bot_to_neopixel_calibration    .add_sample(dual_touch_reading        .raw_b    ,i)
-						single_touch_to_neopixel_calibration      .add_sample(single_touch_reading      .raw_value,i)
-						cheap_single_touch_to_neopixel_calibration.add_sample(cheap_single_touch_reading.raw_value,i)
+						if single_touch_reading.gate and cheap_single_touch_reading.gate:
+							dual_a_samples.append(dual_touch_reading        .raw_a    )
+							dual_b_samples.append(dual_touch_reading        .raw_b    )
+							single_samples.append(single_touch_reading      .raw_value)
+							cheap_samples .append(cheap_single_touch_reading.raw_value)
 
 						pixel_num_samples+=1
+				else:
+					#Accidently remove finger? Cancel it...try again.
+					dual_a_samples.clear()
+					dual_b_samples.clear()
+					single_samples.clear()
+					cheap_samples .clear()
 
-				if pixel_num_samples>=samples_per_pixel:
-					num_pixels_calibrated+=1
-					break
+
 
 			i+=1
-			neopixels.display_dot(i,63,31,0)
+			display_neopixel_calibration(i,63,31,0,calibrated_pixels)
+
 			while self.cheap_single_touch_reading().gate:
 				pass
 
@@ -279,7 +342,7 @@ class Ribbon:
 
 						print(dual_top,dual_bot,single,cheap_single)
 
-		self.test_smooth_demo(single_touch_to_neopixel_calibration)
+		self.test_smooth_demo(single_touch_to_neopixel_calibration,dual_touch_top_to_neopixel_calibration,dual_touch_bot_to_neopixel_calibration)
 
 		if widgets.input_yes_no("Would you like to save this\ncalibration for ribbon "+self.name+"?"):
 			self.dual_touch_top_to_neopixel_calibration     = dual_touch_top_to_neopixel_calibration
@@ -298,47 +361,84 @@ class Ribbon:
 			ask_to_try_again()
 			return
 
-	def test_smooth_demo(self,single_touch_to_neopixel_calibration=None):
+	def test_smooth_demo(
+			self,
+			single_touch_to_neopixel_calibration=None,
+			dual_touch_top_to_neopixel_calibration=None,
+			dual_touch_bot_to_neopixel_calibration=None):
+
 		import lightboard.buttons   as buttons
 		import lightboard.neopixels as neopixels
 		import lightboard.display   as display
+
+		if single_touch_to_neopixel_calibration   is None: single_touch_to_neopixel_calibration  =self.single_touch_to_neopixel_calibration
+		if dual_touch_top_to_neopixel_calibration is None: dual_touch_top_to_neopixel_calibration=self.dual_touch_top_to_neopixel_calibration
+		if dual_touch_bot_to_neopixel_calibration is None: dual_touch_bot_to_neopixel_calibration=self.dual_touch_bot_to_neopixel_calibration
 
 		buttons.metal_button.color=(1,0,1)
 		display.set_text("Now for a smoooooth demo...\n(Press the metal button when you're done)")
 
 		#This is a show-offy demo lol. Try miscalibrating it such that a tiny vibrato makes it move from one side of the lightwave to the otehr...
-		DISCRETE=True
-		N=10
-		V=[]
+
 		def mean(l):
 			l=list(l)
 			return sum(l)/len(l)
+
 		def std(l):
 			u=mean(l)
 			return mean((x-u)**2 for x in l)**.5
-		tether=SoftTether(size=5)
-		tet2=Tether(1)
-		while not buttons.metal_press_viewer.value:
-			single=self.single_touch_reading()
-			# if single_reader.error:
-				# print("ERROR:",single_reader.error)
-			# else:
-			if single.gate:
-				V.append(single.raw_value)
-				while len(V)>N:
-					del V[0]
-				val=tether(mean(V))
-				if DISCRETE:
-					Val=(tet2(int(val)))
+
+		class SuperSmooth:
+			#A linear module created from the original code of this demo.
+			def __init__(self):
+				self.DISCRETE=True
+				self.N=10
+				self.V=[]
+				self.tet2=Tether(1)
+				self.tether=SoftTether(size=5)
+				self.value=None
+
+			def __call__(self,value):
+				raw_value=value
+				self.V.append(raw_value)
+				while len(self.V)>self.N:
+					del self.V[0]
+				val=self.tether(mean(self.V))
+				if self.DISCRETE:
+					Val=(self.tet2(int(val)))
 				else:
 					Val=(val)
-				if single_touch_to_neopixel_calibration is None:
-					single_touch_to_neopixel_calibration=self.single_touch_to_neopixel_calibration
-				val=single_touch_to_neopixel_calibration(Val)
-				neopixels.display_dot(int(val),64,0,128)
+				self.value=Val
+				return Val
+
+			def clear(self):
+				self.V.clear()
+				self.tether.value=None
+
+		super_smooth_single  =SuperSmooth()
+		super_smooth_dual_top=SuperSmooth()
+		super_smooth_dual_bot=SuperSmooth()
+
+		while not buttons.metal_press_viewer.value:
+			single=self.single_touch_reading()
+
+			if single.gate:
+				dual=self.dual_touch_reading()
+
+				val_top=dual_touch_top_to_neopixel_calibration(super_smooth_dual_top(dual.raw_a))
+				val_bot=dual_touch_bot_to_neopixel_calibration(super_smooth_dual_bot(dual.raw_b))
+				val=single_touch_to_neopixel_calibration(super_smooth_single(single.raw_value))
+
+				neopixels.draw_all_off()
+				neopixels.draw_dot(floor(val_top), 0,30, 15)
+				neopixels.draw_dot(floor(val_bot),15,30,  0)
+				neopixels.draw_dot(floor(val    ),64, 0,128)
+				neopixels.refresh()
+
 			else:
-				V.clear()
-				tether.value=None
+				super_smooth_single  .clear()
+				super_smooth_dual_top.clear()
+				super_smooth_dual_bot.clear()
 
 		neopixels.turn_off()
 
