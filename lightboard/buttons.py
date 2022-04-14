@@ -150,6 +150,19 @@ class TemporaryMetalButtonLights:
 	def __exit__(self,*args):
 		metal_button.color=self.old_metal_color
 
+class TemporaryButtonLights:
+	#Saves the current button lights
+	#Combines TemporaryMetalButtonLights and TemporaryGreenButtonLights
+	def __init__(self):
+		self.metal=TemporaryMetalButtonLights()
+		self.green=TemporaryGreenButtonLights()
+	def __enter__(self,*args):
+		self.metal.__enter__()
+		self.green.__enter__()
+	def __exit__(self,*args):
+		self.metal.__exit__()
+		self.green.__exit__()
+
 metal_button=MetalButton(bmo,bmr,bmg,bmb)
 
 class ButtonPressViewer:

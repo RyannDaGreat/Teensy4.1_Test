@@ -273,7 +273,9 @@ class Ribbon:
 				if button_press_finished.value and len(calibrated_pixels)>=2:
 					if widgets.input_yes_no("Do you want to test your calibration?\nYes: Test it!\nNo: I'm done calibrating!"):
 						#This UI is a bit janky....should use better messages. But whatevs...this is just calibration after all...
-						self.test_smooth_demo(single_touch_to_neopixel_calibration,dual_touch_top_to_neopixel_calibration,dual_touch_bot_to_neopixel_calibration)
+						with buttons.TemporaryButtonLights():
+							self.test_smooth_demo(single_touch_to_neopixel_calibration,dual_touch_top_to_neopixel_calibration,dual_touch_bot_to_neopixel_calibration)
+						display_neopixel_calibration(i,0,63,63,calibrated_pixels)
 						show_instructions()
 					elif widgets.input_yes_no("Are you sure your're done\ncalibrating this ribbon?"):
 						finished=True
@@ -376,7 +378,8 @@ class Ribbon:
 		if dual_touch_bot_to_neopixel_calibration is None: dual_touch_bot_to_neopixel_calibration=self.dual_touch_bot_to_neopixel_calibration
 
 		buttons.metal_button.color=(1,0,1)
-		display.set_text("Now for a smoooooth demo...\n(Press the metal button when you're done)")
+		buttons.set_green_button_lights(0,0,0,0)
+		display.set_text("Smooth demo for ribbon %s\nPress metal to exit")
 
 		#This is a show-offy demo lol. Try miscalibrating it such that a tiny vibrato makes it move from one side of the lightwave to the otehr...
 
