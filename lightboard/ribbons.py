@@ -275,7 +275,6 @@ class Ribbon:
 						#This UI is a bit janky....should use better messages. But whatevs...this is just calibration after all...
 						with buttons.TemporaryButtonLights():
 							self.test_smooth_demo(single_touch_to_neopixel_calibration,dual_touch_top_to_neopixel_calibration,dual_touch_bot_to_neopixel_calibration)
-						display_neopixel_calibration(i,0,63,63,calibrated_pixels)
 						show_instructions()
 					elif widgets.input_yes_no("Are you sure your're done\ncalibrating this ribbon?"):
 						finished=True
@@ -393,6 +392,8 @@ class Ribbon:
 
 		class SuperSmooth:
 			#A linear module created from the original code of this demo.
+			#When DISCRETE is True, it's so sensitive that it can recognize individual ADS readings without noise when the finger is still.
+			#Used to smooth ADS readings.
 			def __init__(self):
 				self.DISCRETE=True
 				self.N=10
