@@ -348,8 +348,6 @@ class DraggableValue:
 	def release(self):
 		self.anchor_pos=None
 		self.anchor_value=self.value
-		if self.max_value is not None:self.value=min(self.max_value,self.value)
-		if self.min_value is not None:self.value=max(self.min_value,self.value)
 		return self.value
 
 	def drag(self,pos):
@@ -358,6 +356,8 @@ class DraggableValue:
 		if self.__contains__(self.anchor_pos):
 			delta_pos = pos - self.anchor_pos
 			self.value = self.anchor_value + self.value_per_pos * delta_pos
+		if self.max_value is not None:self.value=min(self.max_value,self.value)
+		if self.min_value is not None:self.value=max(self.min_value,self.value)
 		return self.value
 
 	@property

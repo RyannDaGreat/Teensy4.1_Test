@@ -172,7 +172,7 @@ def display_state():
 		extra_text+='aka major +['+' '.join(map(str,sorted(set(custom_scale)-set(major_scale))))+'], -['+' '.join(map(str,sorted(set(major_scale)-set(custom_scale))))+']'
 		extra_text+='\n'
 	if neo_cc_enabled and neo_cc_get_channel() is not None:
-		extra_text+='Midi CC %i'%neo_cc_get_channel()+':  '+midi_cc_descriptions[neo_cc_get_channel()]+'\n\n'
+		extra_text+='Midi CC %i'%neo_cc_get_channel()+':  '+midi_cc_descriptions[neo_cc_get_channel()]+'   %.3f\n\n'%midi_cc_values[neo_cc_get_channel()]
 
 	text=extra_text
 	if not custom_mode: text+="Scale: "+current_scale_name
@@ -311,6 +311,8 @@ def neo_cc_on_select(index):
 	neo_cc_dragger.set_value(midi_cc_values[midi_cc_channels[index]])
 	display_state()
 
+neo_cc_display_timer=Stopwatch()
+
 neo_cc_selector+=NeopixelRegion(neopixels.first+0 ,neopixels.first+3 ,float_hsv_to_float_rgb(h=0/6,v=1/4,s=1/2),data=0,on_select=lambda:neo_cc_on_select(0))
 neo_cc_selector+=NeopixelRegion(neopixels.first+3 ,neopixels.first+6 ,float_hsv_to_float_rgb(h=1/6,v=1/4,s=1/2),data=1,on_select=lambda:neo_cc_on_select(1))
 neo_cc_selector+=NeopixelRegion(neopixels.first+6 ,neopixels.first+9 ,float_hsv_to_float_rgb(h=2/6,v=1/4,s=1/2),data=2,on_select=lambda:neo_cc_on_select(2))
@@ -322,6 +324,10 @@ def neo_cc_toggle_enabled():
 	neo_cc_enabled=not neo_cc_enabled
 def neo_cc_draw():
 	if neo_cc_enabled:
+		if neo_cc_display_timer.toc()>.3:#Don't update this too frequently, or it will be laggy...
+			display_state()#Update the midi cc value on the display
+			neo_cc_display_timer.tic()
+
 		neo_cc_selector.draw()
 		# channel=midi_cc_channels[neo_cc_selector.data]
 		# base_color=(0,0,.1)
@@ -330,14 +336,14 @@ def neo_cc_draw():
 
 		if neo_cc_selector.data is not None:
 			if neo_cc_dragger.dragging:
-				foreground=float_hsv_to_byte_rgb(seconds())
-				background=(32,0,64)
+				foreground=float_hsv_to_byte_rgb(seconds()/3,.75,1)
+				background=(32,10,64)
 			elif neo_cc_dragger.held:
 				foreground=(64,64,64)
-				background=(0,64,32)
+				background=(10,64,32)
 			else:
 				foreground=(64,64,64)
-				background=(64,0,32)
+				background=(64,10,32)
 			neopixels.draw_line(neo_cc_start,neo_cc_end,*background)
 			neopixels.draw_line(neo_cc_start,neo_cc_end-floor(neo_cc_length*(1-neo_cc_dragger.value)),*foreground) 
 
