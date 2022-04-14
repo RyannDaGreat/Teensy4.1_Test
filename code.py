@@ -5,6 +5,8 @@
 ##TODO: Song state loading and saving seems a bit borked....debug it.
 
 #Press metal button + green 1 then metal + green 1 (without letting go of metal) while playing to edit midi cc channels
+#Midi cc mode:
+#	right now the last one just turns off or on median vibrato when selected. Later this should be a controlable amplitude instead. And a less junky UI.
 #Metal+green 1 then either green 1,2, or 3 enters a slot which will autosave scale etc
 #Green1+green3 will shift scale up or down
 #green 1 or green 3 will temporarily shift 1 semitone
@@ -98,6 +100,8 @@ def note_off(note):
 
 def pitch_bend(semitones):
 	semitones+=temp_semitone_shift
+	if median_based_vibrato_enabled:
+		semitones+=median_based_vibrato_shift
 	midi_message_state['pitch_bend']=semitones
 
 def midi_control(channel,value):
@@ -179,7 +183,7 @@ def display_state():
 	text+="\nKey: %i  aka  %s %i"%(semitone_shift,key_names[semitone_shift%12],semitone_shift//12)
 	text+="\n\nPixel Offset: %i"%get_pixel_offset()
 	text+='\nPixels Per Note: %i'%pixels_per_note
-	text+='\n\nUsing Pressure: %s'%('Yes' if use_pressure else 'No')
+	text+='\n\nPressure: %s   MedVibrato: %s'%(('Yes' if use_pressure else 'No'),('Yes' if median_based_vibrato_enabled else 'No'))
 	text+='\n\nSlot Number: %i'%current_slot_num
 	if not custom_mode: text+="\n\nScale Semitones:\n   %s "%' '.join([str(x) for x in current_scale])
 	text+='\n\nPress all buttons to exit'
@@ -214,6 +218,15 @@ temp_semitone_shift=0
 temp_slide_value_shift=0
 pixel_offset_grab_pos=None
 edit_custom_scale=None
+
+median_based_vibrato_shift=0
+median_based_vibrato_module=MedianBasedVibrato(3)
+median_based_vibrato_amplitude=1#Semitones/pixel
+median_based_vibrato_enabled=False
+def median_based_vibrato_toggle_enabled():
+	global median_based_vibrato_enabled
+	median_based_vibrato_enabled=not median_based_vibrato_enabled
+	display_state()
 
 gate_timer=Stopwatch()
 
@@ -319,6 +332,7 @@ neo_cc_selector+=NeopixelRegion(neopixels.first+6 ,neopixels.first+9 ,float_hsv_
 neo_cc_selector+=NeopixelRegion(neopixels.first+9 ,neopixels.first+12,float_hsv_to_float_rgb(h=3/6,v=1/4,s=1/2),data=3,on_select=lambda:neo_cc_on_select(3))
 neo_cc_selector+=NeopixelRegion(neopixels.first+12,neopixels.first+15,float_hsv_to_float_rgb(h=4/6,v=1/4,s=1/2),data=4,on_select=lambda:neo_cc_on_select(4))
 neo_cc_selector+=NeopixelRegion(neopixels.first+15,neopixels.first+18,float_hsv_to_float_rgb(h=5/6,v=1/4,s=1/2),data=5,on_select=lambda:neo_cc_on_select(5))
+neo_cc_selector+=NeopixelRegion(neopixels.first+18,neopixels.first+21,float_hsv_to_float_rgb(h=6/6,v=1/4,s=1/2),data=5,on_select=lambda:median_based_vibrato_toggle_enabled())
 def neo_cc_toggle_enabled():
 	global neo_cc_enabled
 	neo_cc_enabled=not neo_cc_enabled
@@ -531,6 +545,7 @@ while True:
 		temp_semitone_shift=0
 
 		#Coordinate which ribbon to use based on which one was last pressed
+		old_current_ribbon=current_ribbon
 		if not reading_a.gate and not reading_b.gate:
 			current_ribbon=None
 			gate=False
@@ -546,6 +561,11 @@ while True:
 			if current_ribbon==ribbons.ribbon_b: reading = reading_b
 			ribbons.ribbon_a.prev_gate=reading_a.gate
 			ribbons.ribbon_b.prev_gate=reading_b.gate
+
+		current_ribbon_changed = old_current_ribbon!=current_ribbon
+
+		if current_ribbon_changed and median_based_vibrato_enabled:
+			median_based_vibrato_module.clear()
 
 		if gate:
 			# ribbons.ProcessedDualTouchReading.TWO_TOUCH_THRESHOLD=0
@@ -628,6 +648,9 @@ while True:
 			else:
 				temp_slide_value_shift=0
 				value=floor(value)
+
+			if median_based_vibrato_enabled:
+				median_based_vibrato_shift = median_based_vibrato_module(position) * median_based_vibrato_amplitude
 			
 			value=note_to_pitch(value,*current_scale)
 			ribbon=reading.ribbon
@@ -648,16 +671,17 @@ while True:
 				neo_cc_dragger.drag(position)
 				if neo_cc_dragger.dragging:
 					neo_cc_channel=neo_cc_get_channel()
-					print("neo_cc_channel = ",neo_cc_channel)
 					midi_cc_values[neo_cc_channel]=neo_cc_dragger.value
 					midi_control(neo_cc_channel,neo_cc_dragger.value)
-
 
 			if new_note != note:
 				if note is None:
 					note_on(new_note)
-					pitch_bend(remainder)
+					bend=remainder
 					note=new_note
+
+					if median_based_vibrato_enabled:
+						median_based_vibrato_module.clear()
 
 					if edit_custom_scale is not None and not (buttons.metal_button.value or buttons.green_button_2.value):
 						scale_semitone=new_note
@@ -675,13 +699,23 @@ while True:
 					if abs(value-note)>bend_range:
 						note_on(new_note)
 						note_off(note)
-						pitch_bend(remainder)
+						bend=remainder
 						note=new_note
+						if median_based_vibrato_enabled:
+							median_based_vibrato_module.clear()
 					else:
-						pitch_bend(value-note)
+						bend=value-note
 			else:
-				pitch_bend(remainder)
+				bend=remainder
+			pitch_bend(bend)
 		else:
+			if median_based_vibrato_enabled:
+				median_based_vibrato_module.clear()
+				median_based_vibrato_module.value=0#Don't end on a sour note in mid vibrato
+				median_based_vibrato_shift=0
+				if 'bend' in dir():
+					pitch_bend(bend)
+
 			neo_cc_dragger.release()
 
 			if note is not None:

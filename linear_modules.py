@@ -136,6 +136,24 @@ class MovingMedian:#(LinearModule):
 	def clear(self):
 		self.values.clear()
 
+class MovingMedianBasedDelay:#(LinearModule):
+	#TODO: Make this more efficient; perhaps use ulab?
+	def __init__(self,length):
+		assert length>0,'Must have a positive length'
+		self.length=length
+		self.values=[]
+	def __call__(self,value):
+		self.values.append(value)
+		self.values=self.values[-self.length:]
+		length=len(self.values)
+		if length%2:
+			self.value=self.values[length//2]
+		else:
+			self.value=(self.values[length//2]+self.values[length//2-1])/2
+		return self.value
+	def clear(self):
+		self.values.clear()
+
 class ReluctantDrop:
 	#Can be turned on quickly, but has to be consistently off for a certain period of time to be turned off
 	def __init__(self,time,value=False):
@@ -150,6 +168,19 @@ class ReluctantDrop:
 			self.value=False
 		else:
 			self.value=value
+
+class Delay:
+	def __init__(self,length):
+		assert length>0,'Must have a positive length'
+		self.length=length
+		self.values=[]
+	def __call__(self,value):
+		self.values.append(value)
+		self.value=self.values[0]
+		self.values=self.values[-self.length:]
+		return self.value
+	def clear(self):
+		self.values.clear()
 
 class MovingMinimum:
 	#TODO: Make this more efficient; perhaps use a heap?
@@ -221,6 +252,29 @@ class AntiJump:
 		self.value=None
 		self._moving_range.clear()
 
+class MedianBasedVibrato:
+	#Extracts only the vibrato component
+	def __init__(self,length):
+		if not length%2:
+			length+=1 #Length should be odd
+		self.delay=Delay(length)
+		self.delay=MovingMedianBasedDelay(length*2+1)
+		self.moving_median=MovingMedian(length*2+1)
+		self.length=length
+		self.wait=False
+	def __call__(self,value):
+		d=self.delay(value)
+		m=self.moving_median(value)
+		if len(self.delay.values)<self.length:
+			self.value=0
+			return self.value
+		print(m*100,d*100,m-d*100)
+		self.value=m-d
+		# self.value=self.delay(value)-self.moving_median(value)
+		return self.value
+	def clear(self):
+		self.delay.clear()
+		self.moving_median.clear()
 
 
 
