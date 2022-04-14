@@ -601,14 +601,27 @@ class ProcessedDualTouchReading:
 		self.gate=True #single_before.gate and single_after.gate
 
 		#TODO: Lower the DELTA_THRESHOLD and use self.middle whenever it gets too crazy; that way we can have maximum sensitivity and never miss a sample...
-		mid=(single_before.raw_value+single_after.raw_value)/2
-		top=dual_reading.raw_a
-		bot=dual_reading.raw_b
+		raw_mid=(single_before.raw_value+single_after.raw_value)/2
+		raw_top=dual_reading.raw_a
+		raw_bot=dual_reading.raw_b
+
+		top=raw_top
+		bot=raw_bot
+		mid=raw_mid
 
 		top=ribbon.dual_touch_top_to_neopixel_calibration(top)
 		bot=ribbon.dual_touch_bot_to_neopixel_calibration(bot)
 		mid=ribbon.cheap_single_touch_to_neopixel_calibration(mid)
 		mid=ribbon.cheap_single_filter(mid)
+
+		#I made a mistake on the lightboard...one of the resistors is too large or small (probably resistor tolerance issues)
+		#As a result, one of the ribbons' dual touches doesn't work on the far ends of the ribbon
+		#When this happens, the ADS's reading saturates to 32767 (with the current gain)
+		#Instea of decreasing resolution by turning down the gain, or leaving a touch area unuseable, I'll just do this:
+		#Note: Another valid solution is turning down the ADS1115's gain. This will solve the problem but decrease resolution...
+		if int(raw_top)==32767: top=mid
+		if int(raw_bot)==32767: bot=mid
+
 		delta=top-bot
 
 		# old_num_fingers=ribbon.dual_num_fingers
