@@ -2,6 +2,7 @@
 ####TODO: Midi controllers: In a mode where the top is dedicated to 8 buttons you hold down, by holding one and usnig the other ribbon to drag it it sends midi cc values and prints the value and name of controler on display and shows bar for percent while dragging. 
 ####This mode only activates when you hold down metal BEFORE pressing a ribbon, and then interacting with it. You have to press metal again to make it go away, or make your first press a note and not on the midi controls.
 
+##TODO: Song state loading and saving seems a bit borked....debug it.
 
 #Press metal button + green 1 then metal + green 1 (without letting go of metal) while playing to edit midi cc channels
 #Metal+green 1 then either green 1,2, or 3 enters a slot which will autosave scale etc
@@ -252,22 +253,39 @@ neopixels.refresh()
 
 
 midi_cc_values={}#OrderedDict() Can't be ordered dict if we save them in config...#Mapping from channel to float
-midi_cc_values[2]=.5
-midi_cc_values[3]=.5
-midi_cc_values[4]=.5
-midi_cc_values[5]=.5
-midi_cc_values[6]=.5
-midi_cc_values[7]=.5
+midi_cc_values[ 2]=.5
+midi_cc_values[ 3]=.5
+midi_cc_values[ 4]=.5
+midi_cc_values[ 5]=.5
+midi_cc_values[ 6]=.5
+midi_cc_values[ 7]=.5
+midi_cc_values[ 8]=.5
+midi_cc_values[ 9]=.5
+midi_cc_values[10]=.5
+midi_cc_values[11]=.5
+midi_cc_values[12]=.5
+midi_cc_values[13]=.5
 
 midi_cc_descriptions={}#OrderedDict()
-midi_cc_descriptions[2]='PWM'
-midi_cc_descriptions[3]='Chorus'
-midi_cc_descriptions[4]='Squareness'
-midi_cc_descriptions[5]='Reverb/Release'
-midi_cc_descriptions[6]='Legato'
-midi_cc_descriptions[7]='Filter'
+midi_cc_descriptions[ 2]='PWM'
+midi_cc_descriptions[ 3]='Chorus'
+midi_cc_descriptions[ 4]='Squareness'
+midi_cc_descriptions[ 5]='Reverb/Release'
+midi_cc_descriptions[ 6]='Legato'
+midi_cc_descriptions[ 7]='Filter'
+midi_cc_descriptions[ 8]='Vibrato Amplitude'
+midi_cc_descriptions[ 9]='(Unused)'
+midi_cc_descriptions[10]='(Unused)'
+midi_cc_descriptions[11]='(Unused)'
+midi_cc_descriptions[12]='(Unused)'
+midi_cc_descriptions[13]='(Unused)'
 
 midi_cc_channels=sorted(midi_cc_descriptions)
+
+def first_half(array):
+	return array[:len(array)//2]
+def second_half(array):
+	return array[len(array)//2:]
 
 #Metal+1 then (hold metal) metal+1 to enable
 neo_cc_enabled=False#Are we using the controllers rn? Neo_cc stands for neopixel midi control channel
@@ -616,10 +634,15 @@ while True:
 
 			if neo_cc_enabled:
 				if position in neo_cc_selector:
-					neo_cc_selector.select(position)
+					if current_ribbon.name=='a':
+						midi_cc_channels=first_half(sorted(midi_cc_descriptions))
+					elif current_ribbon.name=='b':
+						midi_cc_channels=second_half(sorted(midi_cc_descriptions))
+					neo_cc_selector.select(position,current_ribbon)
 				neo_cc_dragger.drag(position)
 				if neo_cc_dragger.dragging:
 					neo_cc_channel=neo_cc_get_channel()
+					print("neo_cc_channel = ",neo_cc_channel)
 					midi_cc_values[neo_cc_channel]=neo_cc_dragger.value
 					midi_control(neo_cc_channel,neo_cc_dragger.value)
 

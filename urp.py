@@ -423,6 +423,7 @@ class SelectableNeopixelRegions:
 		#Regions is a list of NeopixelRegion instances
 		self.regions=regions if regions is not None else []
 		self.selected=None
+		self._prev_ribbon=None #When ribbon is changed, we also trigger on_select...
 
 		assert isinstance(self.regions,list)
 		assert all(isinstance(x,NeopixelRegion) for x in self.regions)
@@ -437,14 +438,15 @@ class SelectableNeopixelRegions:
 			else:
 				region.draw(on=False)
 
-	def select(self,pos):
+	def select(self,pos,ribbon=None):
 		selected=None
 		for region in self.regions:
 			if pos in region:
 				selected=region
 		triggered=False
-		if selected is not None and selected!=self.selected:
+		if selected is not None and (selected!=self.selected or ribbon is not self._prev_ribbon):
 			triggered=True
+		self._prev_ribbon=ribbon
 		self.selected=selected
 		if triggered:
 			selected.on_select()
