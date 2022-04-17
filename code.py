@@ -100,7 +100,8 @@ def note_off(note):
 
 def pitch_bend(semitones):
 	semitones+=temp_semitone_shift
-	if median_based_vibrato_enabled:
+	if median_based_vibrato_enabled and not buttons.green_button_2.value:
+		#If we're not in free-pitch mode (button 2) then use vibrato
 		semitones+=median_based_vibrato_shift
 	midi_message_state['pitch_bend']=semitones
 
@@ -283,12 +284,12 @@ midi_cc_descriptions={}#OrderedDict()
 midi_cc_descriptions[ 2]='PWM'
 midi_cc_descriptions[ 3]='Chorus'
 midi_cc_descriptions[ 4]='Squareness'
-midi_cc_descriptions[ 5]='Reverb/Release'
+midi_cc_descriptions[ 5]='Reverb'
 midi_cc_descriptions[ 6]='Legato'
 midi_cc_descriptions[ 7]='Filter'
 midi_cc_descriptions[ 8]='Vibrato Amplitude'
-midi_cc_descriptions[ 9]='(Unused)'
-midi_cc_descriptions[10]='(Unused)'
+midi_cc_descriptions[ 9]='Ugliness'
+midi_cc_descriptions[10]='Attack/Release'
 midi_cc_descriptions[11]='(Unused)'
 midi_cc_descriptions[12]='(Unused)'
 midi_cc_descriptions[13]='(Unused)'
