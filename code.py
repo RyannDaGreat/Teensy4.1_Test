@@ -465,16 +465,18 @@ def select_patch(index=None):
 	else:
 		options = OrderedDict()
 
-		options['Synth'  ] = lambda: select_patch(0)
-		options['Shells' ] = lambda: select_patch(1)
-		options['Copper' ] = lambda: select_patch(2)
-		options['Steel'  ] = lambda: select_patch(3)
-		options['Distort'] = lambda: select_patch(4)
-		options['Brass'  ] = lambda: select_patch(5)
-		options['Sax'    ] = lambda: select_patch(6)
-		options['Anthem' ] = lambda: select_patch(7)
-		options['Stars'  ] = lambda: select_patch(8)
-		options['Flute'  ] = lambda: select_patch(9)
+		options['Synth'  ] = lambda: select_patch( 0)
+		options['Classic'] = lambda: select_patch( 1)
+		options['Shells' ] = lambda: select_patch( 2)
+		options['Copper' ] = lambda: select_patch( 3)
+		options['Steel'  ] = lambda: select_patch( 4)
+		options['Distort'] = lambda: select_patch( 5)
+		options['Brass'  ] = lambda: select_patch( 6)
+		options['Sax'    ] = lambda: select_patch( 7)
+		options['Anthem' ] = lambda: select_patch( 8)
+		options['Stars'  ] = lambda: select_patch( 9)
+		options['Flute'  ] = lambda: select_patch(10)
+		options['Banjo'  ] = lambda: select_patch(11)
 
 		widgets.run_select_subroutine(options,prompt='Select Axoloti Patch:')
 
