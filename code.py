@@ -290,8 +290,8 @@ midi_cc_descriptions[ 7]='Filter'
 midi_cc_descriptions[ 8]='Vibrato Amplitude'
 midi_cc_descriptions[ 9]='Ugliness'
 midi_cc_descriptions[10]='Attack/Release'
-midi_cc_descriptions[11]='(Unused)'
-midi_cc_descriptions[12]='(Unused)'
+midi_cc_descriptions[11]='Volume'
+midi_cc_descriptions[12]='Panning'
 midi_cc_descriptions[13]='(Unused)'
 
 midi_cc_channels=sorted(midi_cc_descriptions)
@@ -477,6 +477,7 @@ def select_patch(index=None):
 		options['Stars'  ] = lambda: select_patch( 9)
 		options['Flute'  ] = lambda: select_patch(10)
 		options['Banjo'  ] = lambda: select_patch(11)
+		options['Organ'  ] = lambda: select_patch(12)
 
 		widgets.run_select_subroutine(options,prompt='Select Axoloti Patch:')
 
